@@ -6,11 +6,15 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { useAircraftGeometry } from '@/composables/useAircraftGeometry.js'
+import { useComponentError } from '@/composables/componentError.js'
 
 const props = defineProps({
   aircraft: { type: Object, required: true },
   selectedKey: { type: String, default: null }
 })
+
+const emit = defineEmits(['select', 'error'])
+const { reportError } = useComponentError(emit)
 
 const canvasRef = ref(null)
 const wireframe = ref(false)

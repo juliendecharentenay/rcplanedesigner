@@ -1,10 +1,14 @@
 <script setup>
 import { reactive, ref, computed } from 'vue'
 import { init, pushWing, deleteWing, pushWingElement, deleteWingElement } from '@/js/aircraft.js'
+import { useErrorHandler } from '@/composables/errorHandler.js'
 import AppHeader from '@/components/AppHeader.vue'
 import GeometryViewer from '@/components/GeometryViewer.vue'
 import GeometryTree from '@/components/GeometryTree.vue'
 import BottomPanel from '@/components/BottomPanel.vue'
+import ErrorModal from '@/components/ErrorModal.vue'
+
+const { appError, handleError, dismissError } = useErrorHandler()
 
 const aircraft = reactive(init())
 const selection = ref(null)
@@ -125,6 +129,7 @@ ${wings}
       @update:information="handleUpdateInformation"
       @add-wing="handleAddWing"
       @export-xml="handleExportXml"
+      @error="handleError"
     />
 
     <div class="flex-1 relative overflow-hidden">
@@ -134,6 +139,7 @@ ${wings}
         :selected-key="selectedKey"
         class="absolute inset-0"
         @select="handleSelect"
+        @error="handleError"
       />
 
       <GeometryTree
@@ -144,6 +150,7 @@ ${wings}
         @add-wing-element="handleAddElement"
         @delete-wing="handleDeleteWing"
         @delete-wing-element="handleDeleteElement"
+        @error="handleError"
       />
 
       <Transition name="slide-up">
@@ -154,10 +161,18 @@ ${wings}
           @close="selection = null"
           @update:wing="handleWingUpdate"
           @update:element="handleElementUpdate"
+          @error="handleError"
         />
       </Transition>
 
     </div>
+
+    <ErrorModal
+      v-if="appError !== null"
+      :app-error="appError"
+      @dismiss="dismissError"
+    />
+
   </div>
 </template>
 

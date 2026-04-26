@@ -1,9 +1,12 @@
 <script setup>
+import { useComponentError } from '@/composables/componentError.js'
+
 const props = defineProps({
   information: { type: Object, required: true }
 })
 
-const emit = defineEmits(['update:information', 'add-wing', 'export-xml'])
+const emit = defineEmits(['update:information', 'add-wing', 'export-xml', 'error'])
+const { reportError } = useComponentError(emit)
 
 function update(field, value) {
   emit('update:information', { ...props.information, [field]: value })

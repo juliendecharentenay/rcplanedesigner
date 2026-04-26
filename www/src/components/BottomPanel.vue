@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { useComponentError } from '@/composables/componentError.js'
 import TransformEditor from './TransformEditor.vue'
 import AirfoilSelector from './AirfoilSelector.vue'
 
@@ -8,7 +9,8 @@ const props = defineProps({
   aircraft: { type: Object, required: true }
 })
 
-const emit = defineEmits(['close', 'update:wing', 'update:element'])
+const emit = defineEmits(['close', 'update:wing', 'update:element', 'error'])
+const { reportError, forwardError } = useComponentError(emit)
 
 const title = computed(() => {
   const s = props.selection
@@ -79,15 +81,15 @@ function updateInformation(field, value) {
               class="text-sm border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
             />
           </div>
-          <TransformEditor :transform="wing.transform" label="Wing transform" />
+          <TransformEditor :transform="wing.transform" label="Wing transform" @error="forwardError" />
         </div>
       </template>
 
       <!-- Element level -->
       <template v-if="selection.type === 'element' && element">
         <div class="space-y-3">
-          <AirfoilSelector :modelValue="element.airfoilUid" @update:modelValue="updateAirfoil" />
-          <TransformEditor :transform="element.transform" label="Element transform" />
+          <AirfoilSelector :modelValue="element.airfoilUid" @update:modelValue="updateAirfoil" @error="forwardError" />
+          <TransformEditor :transform="element.transform" label="Element transform" @error="forwardError" />
         </div>
       </template>
 

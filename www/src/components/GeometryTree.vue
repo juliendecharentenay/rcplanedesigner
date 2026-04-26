@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { useComponentError } from '@/composables/componentError.js'
 
 const props = defineProps({
   aircraft: { type: Object, required: true },
@@ -10,8 +11,10 @@ const emit = defineEmits([
   'select',
   'add-wing-element',
   'delete-wing',
-  'delete-wing-element'
+  'delete-wing-element',
+  'error'
 ])
+const { reportError } = useComponentError(emit)
 
 const panelOpen = ref(true)
 const expandedWings = ref({})
