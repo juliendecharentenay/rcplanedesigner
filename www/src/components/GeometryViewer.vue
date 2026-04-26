@@ -2,11 +2,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   WebGLRenderer, Scene, PerspectiveCamera,
-  AmbientLight, DirectionalLight, Color
+  AmbientLight, DirectionalLight, Color,
+  AxesHelper, Vector3
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { useAircraftGeometry } from '@/composables/useAircraftGeometry.js'
 import { useComponentError } from '@/composables/componentError.js'
+import AxisGizmo from '@/components/AxisGizmo.vue'
 
 const props = defineProps({
   aircraft: { type: Object, required: true },
@@ -24,6 +26,13 @@ scene.background = new Color(0xf0f4f8)
 
 const aircraftRef = computed(() => props.aircraft)
 const { setWireframe } = useAircraftGeometry(scene, aircraftRef)
+
+// Gizmo state: projected SVG coordinates for each axis label and line endpoint
+const gizmo = ref({
+  x: { ex: 82, ey: 50, lx: 90, ly: 50 },
+  y: { ex: 50, ey: 82, lx: 50, ly: 90 },
+  z: { ex: 50, ey: 18, lx: 50, ly: 10 },
+})
 
 let renderer, camera, controls, animId, resizeObserver
 
@@ -47,6 +56,8 @@ onMounted(() => {
   fill.position.set(-3, 2, -1)
   scene.add(fill)
 
+  scene.add(new AxesHelper(1.5))
+
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
 
@@ -60,10 +71,35 @@ onMounted(() => {
   })
   resizeObserver.observe(parent)
 
+  const _worldAxes = {
+    x: new Vector3(1, 0, 0),
+    y: new Vector3(0, 1, 0),
+    z: new Vector3(0, 0, 1),
+  }
+  const _tmp = new Vector3()
+
+  function updateGizmo() {
+    // Project world axes into camera space to drive the 2D SVG gizmo
+    const cx = 50, cy = 50, lineR = 32, labelR = 44
+    const out = {}
+    for (const [k, worldDir] of Object.entries(_worldAxes)) {
+      _tmp.copy(worldDir).transformDirection(camera.matrixWorldInverse)
+      // camera space: +x = right, +y = up (SVG y is flipped)
+      out[k] = {
+        ex: cx + _tmp.x * lineR,
+        ey: cy - _tmp.y * lineR,
+        lx: cx + _tmp.x * labelR,
+        ly: cy - _tmp.y * labelR,
+      }
+    }
+    gizmo.value = out
+  }
+
   function loop() {
     animId = requestAnimationFrame(loop)
     controls.update()
     renderer.render(scene, camera)
+    updateGizmo()
   }
   loop()
 })
@@ -79,6 +115,27 @@ function toggleWireframe() {
   wireframe.value = !wireframe.value
   setWireframe(wireframe.value)
 }
+
+function snapView(axis) {
+  const target = controls.target.clone()
+  const dist = camera.position.distanceTo(target)
+  if (axis === 'x') {
+    // Side view: look along X, Z is up
+    camera.position.set(target.x - dist, target.y, target.z)
+    camera.up.set(0, 0, 1)
+  } else if (axis === 'y') {
+    // Front view: look along Y, Z is up
+    camera.position.set(target.x, target.y - dist, target.z)
+    camera.up.set(0, 0, 1)
+  } else if (axis === 'z') {
+    // Top view: look down Z, Y span runs up in viewport
+    camera.position.set(target.x, target.y, target.z + dist)
+    camera.up.set(0, 1, 0)
+  }
+  camera.lookAt(target)
+  controls.target.copy(target)
+  controls.update()
+}
 </script>
 
 <template>
@@ -91,6 +148,10 @@ function toggleWireframe() {
     >
       {{ wireframe ? 'Solid' : 'Wireframe' }}
     </button>
+
+    <div class="absolute bottom-3 left-3">
+      <AxisGizmo :axes="gizmo" @snap="snapView" />
+    </div>
 
     <div class="absolute bottom-3 right-3 text-xs text-gray-500 bg-white/80 rounded px-2 py-1 leading-5">
       <span class="text-red-500 font-bold">X</span> chord &nbsp;
