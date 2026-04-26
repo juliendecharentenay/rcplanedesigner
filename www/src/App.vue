@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref, computed } from 'vue'
 import { init, pushWing, deleteWing, pushWingElement, deleteWingElement } from '@/js/aircraft.js'
+import { buildXml } from '@/utils/buildXml.js'
 import { useErrorHandler } from '@/composables/errorHandler.js'
 import AppHeader from '@/components/AppHeader.vue'
 import GeometryViewer from '@/components/GeometryViewer.vue'
@@ -77,48 +78,7 @@ function handleExportXml() {
   URL.revokeObjectURL(url)
 }
 
-function buildXml(ac) {
-  const info = ac.information
-  const ts = new Date().toISOString()
-  const wings = ac.wings.map((wing, wi) => {
-    const elements = wing.elements.map((el, ei) => {
-      const t = el.transform
-      return `      <element>
-        <airfoilUID>${el.airfoilUid}</airfoilUID>
-        <transformation>
-          <rotation><x>${t.rotation.x}</x><y>${t.rotation.y}</y><z>${t.rotation.z}</z></rotation>
-          <scaling><x>${t.scaling.x}</x><y>${t.scaling.y}</y><z>${t.scaling.z}</z></scaling>
-          <translation><x>${t.translation.x}</x><y>${t.translation.y}</y><z>${t.translation.z}</z></translation>
-        </transformation>
-      </element>`
-    }).join('\n')
-    const t = wing.transform
-    return `    <wing>
-      <name>${wing.name}</name>
-      <transformation>
-        <rotation><x>${t.rotation.x}</x><y>${t.rotation.y}</y><z>${t.rotation.z}</z></rotation>
-        <scaling><x>${t.scaling.x}</x><y>${t.scaling.y}</y><z>${t.scaling.z}</z></scaling>
-        <translation><x>${t.translation.x}</x><y>${t.translation.y}</y><z>${t.translation.z}</z></translation>
-      </transformation>
-      <elements>
-${elements}
-      </elements>
-    </wing>`
-  }).join('\n')
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<aircraft>
-  <header>
-    <name>${info.name}</name>
-    <version>${info.version}</version>
-    <creator>${info.creator}</creator>
-    <timestamp>${ts}</timestamp>
-  </header>
-  <wings>
-${wings}
-  </wings>
-</aircraft>`
-}
 </script>
 
 <template>
