@@ -30,6 +30,54 @@ export function convertSpeed(value, fromSystem, toSystem) {
   return fromSystem === 'Imperial' ? value * MPH_TO_MS : value / MPH_TO_MS
 }
 
+// — Temperature —
+// SI display unit: °C, Imperial: °F
+// Note: atmosphere.js works in Kelvin internally; use kelvinToCelsius / kelvinToFahrenheit there.
+
+export function getTemperatureUnit(system) {
+  return system === 'Imperial' ? '°F' : '°C'
+}
+
+export function convertTemperature(value, fromSystem, toSystem) {
+  if (fromSystem === toSystem) return value
+  return fromSystem === 'SI'
+    ? value * 9 / 5 + 32   // °C → °F
+    : (value - 32) * 5 / 9 // °F → °C
+}
+
+export function kelvinToCelsius(k)    { return k - 273.15 }
+export function kelvinToFahrenheit(k) { return kelvinToCelsius(k) * 9 / 5 + 32 }
+
+// — Pressure —
+// SI: Pa, Imperial: inHg
+// 1 inHg = 3386.389 Pa
+
+const PA_TO_INHG = 1 / 3386.389
+
+export function getPressureUnit(system) {
+  return system === 'Imperial' ? 'inHg' : 'Pa'
+}
+
+export function convertPressure(value, fromSystem, toSystem) {
+  if (fromSystem === toSystem) return value
+  return fromSystem === 'SI' ? value * PA_TO_INHG : value / PA_TO_INHG
+}
+
+// — Density —
+// SI: kg/m³, Imperial: lb/ft³
+// 1 lb/ft³ = 0.45359237 kg / 0.028316846592 m³ = 16.01846 kg/m³
+
+const LB_FT3_TO_KG_M3 = 16.01846337
+
+export function getDensityUnit(system) {
+  return system === 'Imperial' ? 'lb/ft³' : 'kg/m³'
+}
+
+export function convertDensity(value, fromSystem, toSystem) {
+  if (fromSystem === toSystem) return value
+  return fromSystem === 'SI' ? value / LB_FT3_TO_KG_M3 : value * LB_FT3_TO_KG_M3
+}
+
 // — Wing loading —
 // 1 oz/sq.ft = (28.349523125 g) / (9.290304 sq.dm) ≈ 3.05152 g/sq.dm
 

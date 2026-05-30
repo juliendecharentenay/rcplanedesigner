@@ -3,17 +3,31 @@ import { computed, inject } from 'vue'
 import { APP_STATE_KEY, PLANE_TYPES } from '../composables/useAppState'
 import { useUnits } from '../composables/useUnits'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
+import { AIRFOILS_KEY } from '../composables/useAirfoils'
 import { UNIT_SYSTEMS } from '@/units/units'
+import { computeCruiseCL } from '@/js/liftCoefficient'
+import { interpolateAoA } from '@/js/interpolateAoA'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
+import BaseAnchor from '@/components/BaseAnchor.vue'
 import ParameterRow from './ParameterRow.vue'
 
 const { getState, setState } = inject(APP_STATE_KEY)
-const { distanceUnit, wingLoadingUnit, speedUnit, system } = useUnits()
+const { distanceUnit, wingLoadingUnit, speedUnit, system, convertDistance, convertWingLoading, convertSpeed } = useUnits()
 const { register, setFocused, clearFocused } = inject(FOCUSED_PARAM_KEY)
+const { airfoils } = inject(AIRFOILS_KEY)
+
+const selectedAirfoil = computed(() => {
+  const profile = getState().airfoilProfile
+  return profile ? airfoils.find((a) => a.profileName === profile) ?? null : null
+})
 
 // Co-locate each parameter's contextual help with its definition.
 // When adding a new parameter, add a register() call here alongside its state binding.
+register('airfoilProfile', {
+  title: 'Airfoil Profile',
+  body: 'The cross-sectional shape of the wing. Each profile has a different lift curve, stall behaviour, and drag. Select one to see its key characteristics. The table shows zero-lift angle of attack, stall angle, and maximum lift coefficient.',
+})
 register('planeType', {
   title: 'Plane Type',
   body: 'Sets the overall design profile. Trainers have stable, high-lift wings suited to beginners. Gliders prioritise low drag and long glide ratios. Acrobatic planes favour agility and neutral stability.',
@@ -41,6 +55,32 @@ const cruisingSpeedBody = computed(() =>
 )
 register('cruisingSpeed', { title: 'Cruising Speed', body: cruisingSpeedBody })
 
+register('cruiseCL', {
+  title: 'Cruise Lift Coefficient',
+  body: 'The lift coefficient the wing must produce at cruise. Derived from wing loading, cruising speed, and air density at site altitude. A value near 0.1–0.2 is typical for fast models; 0.4–0.8 for slow or heavily loaded ones.',
+})
+
+const cruiseCL = computed(() => {
+  const { wingLoading, cruisingSpeed: speed, siteAltitude } = getState()
+  const wl_SI    = convertWingLoading(wingLoading, system.value, 'SI')
+  const speed_SI = convertSpeed(speed, system.value, 'SI')
+  const alt_SI   = convertDistance(siteAltitude, system.value, 'SI')
+  const cl = computeCruiseCL(wl_SI, speed_SI, alt_SI)
+  return cl !== null ? cl.toFixed(3) : '—'
+})
+
+const cruiseAoA = computed(() => {
+  if (!selectedAirfoil.value) return null
+  const { wingLoading, cruisingSpeed: speed, siteAltitude } = getState()
+  const wl_SI    = convertWingLoading(wingLoading, system.value, 'SI')
+  const speed_SI = convertSpeed(speed, system.value, 'SI')
+  const alt_SI   = convertDistance(siteAltitude, system.value, 'SI')
+  const cl = computeCruiseCL(wl_SI, speed_SI, alt_SI)
+  if (cl === null) return null
+  const aoa = interpolateAoA(selectedAirfoil.value.polar, cl)
+  return aoa !== null ? aoa.toFixed(1) : null
+})
+
 const planeType = computed({
   get: () => getState().planeType,
   set: (v) => setState({ planeType: v }),
@@ -66,15 +106,28 @@ const cruisingSpeed = computed({
   set: (v) => setState({ cruisingSpeed: v }),
 })
 
+const airfoilOptions = computed(() => [
+  { value: '', label: '— Select airfoil —' },
+  ...airfoils.map((a) => ({ value: a.profileName, label: a.profileName })),
+])
+
+const airfoilProfile = computed({
+  get: () => getState().airfoilProfile ?? '- Select airfoil -',
+  set: (v) => setState({ airfoilProfile: v === '' ? null : v }),
+})
+
 function onPanelFocusOut(e) {
   // Only clear when focus leaves the panel entirely, not when moving between fields
-  if (!e.currentTarget.contains(e.relatedTarget)) clearFocused()
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    // Timeout used to allow for processing of events from temporary panels
+    setTimeout(() => clearFocused(), 200)
+  }
 }
 </script>
 
 <template>
   <aside
-    class="absolute left-0 top-0 bottom-0 z-10 flex flex-col min-w-48 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl rounded-br-xl"
+    class="absolute left-0 top-0 bottom-0 z-10 flex flex-col min-w-48 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl"
     @focusout="onPanelFocusOut"
   >
     <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
@@ -94,6 +147,13 @@ function onPanelFocusOut(e) {
       <div @focusin="setFocused('units')">
         <ParameterRow label="Units" input-id="param-units">
           <BaseSelect id="param-units" v-model="units" :options="UNIT_SYSTEMS" />
+        </ParameterRow>
+      </div>
+
+      <div @focusin="setFocused('airfoilProfile')">
+        <ParameterRow label="Airfoil Profile" input-id="param-airfoil-profile">
+          <!-- BaseSelect id="param-airfoil-profile" v-model="airfoilProfile" :options="airfoilOptions" / -->
+          <BaseAnchor id="param-airfoil-profile" v-model="airfoilProfile" />
         </ParameterRow>
       </div>
 
@@ -130,6 +190,15 @@ function onPanelFocusOut(e) {
             :step="1"
             :suffix="speedUnit"
           />
+        </ParameterRow>
+      </div>
+
+      <div class="flex gap-4" @focusin="setFocused('cruiseCL')">
+        <ParameterRow label="Cruise C&#x2097;">
+          <span class="text-sm font-mono text-slate-700">{{ cruiseCL }}</span>
+        </ParameterRow>
+        <ParameterRow v-if="cruiseAoA !== null" label="Cruise AoA @ ∞ AR">
+          <span class="text-sm font-mono text-slate-700">{{ cruiseAoA }}°</span>
         </ParameterRow>
       </div>
     </div>

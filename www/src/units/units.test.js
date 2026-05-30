@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { UNIT_SYSTEMS, getDistanceUnit, convertDistance, getWingLoadingUnit, convertWingLoading, getSpeedUnit, convertSpeed } from './units'
+import {
+  UNIT_SYSTEMS,
+  getDistanceUnit, convertDistance,
+  getWingLoadingUnit, convertWingLoading,
+  getSpeedUnit, convertSpeed,
+  getTemperatureUnit, convertTemperature, kelvinToCelsius, kelvinToFahrenheit,
+  getPressureUnit, convertPressure,
+  getDensityUnit, convertDensity,
+} from './units'
 
 describe('UNIT_SYSTEMS', () => {
   it('contains SI and Imperial entries', () => {
@@ -75,6 +83,115 @@ describe('convertWingLoading', () => {
     const original = 15
     const converted = convertWingLoading(convertWingLoading(original, 'Imperial', 'SI'), 'SI', 'Imperial')
     expect(converted).toBeCloseTo(original)
+  })
+})
+
+describe('getTemperatureUnit', () => {
+  it('returns "°C" for SI', () => {
+    expect(getTemperatureUnit('SI')).toBe('°C')
+  })
+
+  it('returns "°F" for Imperial', () => {
+    expect(getTemperatureUnit('Imperial')).toBe('°F')
+  })
+})
+
+describe('convertTemperature', () => {
+  it('returns the same value when systems are equal', () => {
+    expect(convertTemperature(20, 'SI', 'SI')).toBe(20)
+    expect(convertTemperature(68, 'Imperial', 'Imperial')).toBe(68)
+  })
+
+  it('converts °C to °F', () => {
+    expect(convertTemperature(0, 'SI', 'Imperial')).toBeCloseTo(32)
+    expect(convertTemperature(100, 'SI', 'Imperial')).toBeCloseTo(212)
+  })
+
+  it('converts °F to °C', () => {
+    expect(convertTemperature(32, 'Imperial', 'SI')).toBeCloseTo(0)
+    expect(convertTemperature(212, 'Imperial', 'SI')).toBeCloseTo(100)
+  })
+
+  it('round-trips without drift', () => {
+    const original = 15
+    const converted = convertTemperature(convertTemperature(original, 'SI', 'Imperial'), 'Imperial', 'SI')
+    expect(converted).toBeCloseTo(original)
+  })
+})
+
+describe('kelvinToCelsius / kelvinToFahrenheit', () => {
+  it('converts 288.15 K to 15 °C', () => {
+    expect(kelvinToCelsius(288.15)).toBeCloseTo(15)
+  })
+
+  it('converts 288.15 K to 59 °F', () => {
+    expect(kelvinToFahrenheit(288.15)).toBeCloseTo(59)
+  })
+
+  it('converts 0 K to −273.15 °C', () => {
+    expect(kelvinToCelsius(0)).toBeCloseTo(-273.15)
+  })
+})
+
+describe('getPressureUnit', () => {
+  it('returns "Pa" for SI', () => {
+    expect(getPressureUnit('SI')).toBe('Pa')
+  })
+
+  it('returns "inHg" for Imperial', () => {
+    expect(getPressureUnit('Imperial')).toBe('inHg')
+  })
+})
+
+describe('convertPressure', () => {
+  it('returns the same value when systems are equal', () => {
+    expect(convertPressure(101325, 'SI', 'SI')).toBe(101325)
+    expect(convertPressure(29.92, 'Imperial', 'Imperial')).toBe(29.92)
+  })
+
+  it('converts Pa to inHg — sea-level std pressure ≈ 29.92 inHg', () => {
+    expect(convertPressure(101325, 'SI', 'Imperial')).toBeCloseTo(29.92, 1)
+  })
+
+  it('converts inHg to Pa', () => {
+    expect(convertPressure(29.92, 'Imperial', 'SI')).toBeCloseTo(101325, -1)
+  })
+
+  it('round-trips without drift', () => {
+    const original = 101325
+    const converted = convertPressure(convertPressure(original, 'SI', 'Imperial'), 'Imperial', 'SI')
+    expect(converted).toBeCloseTo(original, 0)
+  })
+})
+
+describe('getDensityUnit', () => {
+  it('returns "kg/m³" for SI', () => {
+    expect(getDensityUnit('SI')).toBe('kg/m³')
+  })
+
+  it('returns "lb/ft³" for Imperial', () => {
+    expect(getDensityUnit('Imperial')).toBe('lb/ft³')
+  })
+})
+
+describe('convertDensity', () => {
+  it('returns the same value when systems are equal', () => {
+    expect(convertDensity(1.225, 'SI', 'SI')).toBe(1.225)
+    expect(convertDensity(0.07647, 'Imperial', 'Imperial')).toBe(0.07647)
+  })
+
+  it('converts kg/m³ to lb/ft³ — sea-level std density ≈ 0.07647 lb/ft³', () => {
+    expect(convertDensity(1.225, 'SI', 'Imperial')).toBeCloseTo(0.07647, 4)
+  })
+
+  it('converts lb/ft³ to kg/m³', () => {
+    expect(convertDensity(0.07647, 'Imperial', 'SI')).toBeCloseTo(1.225, 2)
+  })
+
+  it('round-trips without drift', () => {
+    const original = 1.225
+    const converted = convertDensity(convertDensity(original, 'SI', 'Imperial'), 'Imperial', 'SI')
+    expect(converted).toBeCloseTo(original, 5)
   })
 })
 

@@ -29,11 +29,12 @@ export function useAppState(onError) {
   //      This keeps the numeric value consistent with the selected unit system
   //      in a single atomic state update.
   const state = ref({
-    units:        'SI',      // 'SI' | 'Imperial'
-    siteAltitude: 0,         // metres (SI) or feet (Imperial)
-    wingLoading:   0,         // g/sq.dm (SI) or oz/sq.ft (Imperial)
-    cruisingSpeed: 0,         // m/s (SI) or mph (Imperial)
-    planeType:     'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
+    units:          'SI',      // 'SI' | 'Imperial'
+    siteAltitude:   0,         // metres (SI) or feet (Imperial)
+    wingLoading:    0,         // g/sq.dm (SI) or oz/sq.ft (Imperial)
+    cruisingSpeed:  0,         // m/s (SI) or mph (Imperial)
+    planeType:      'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
+    airfoilProfile: null,      // profileName string or null (no selection)
   })
 
   // — Accessors —

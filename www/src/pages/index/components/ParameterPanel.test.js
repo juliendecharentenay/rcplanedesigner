@@ -4,6 +4,12 @@ import { ref } from 'vue'
 import ParameterPanel from './ParameterPanel.vue'
 import { APP_STATE_KEY } from '../composables/useAppState'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
+import { AIRFOILS_KEY } from '../composables/useAirfoils'
+
+const MOCK_AIRFOILS = [
+  { profileName: 'E168 (12%)', zeroLiftAoA: 0, stall_aoa: 11, stall_clmax: 1.047, polar: [] },
+  { profileName: 'E169 (14%)', zeroLiftAoA: 0, stall_aoa: 13, stall_clmax: 1.1,   polar: [] },
+]
 
 function makeFocusedParamProvide() {
   return {
@@ -16,13 +22,14 @@ function makeFocusedParamProvide() {
 }
 
 function makeProvide(stateOverrides = {}) {
-  const state = ref({ units: 'SI', siteAltitude: 0, planeType: 'Trainer', ...stateOverrides })
+  const state = ref({ units: 'SI', siteAltitude: 0, planeType: 'Trainer', airfoilProfile: '- Select profile -', wingLoading: 30, cruisingSpeed: 13, ...stateOverrides })
   return {
     [APP_STATE_KEY]: {
       getState: () => state.value,
       setState: vi.fn((partial) => { state.value = { ...state.value, ...partial } }),
     },
     [FOCUSED_PARAM_KEY]: makeFocusedParamProvide(),
+    [AIRFOILS_KEY]: { airfoils: MOCK_AIRFOILS },
   }
 }
 
@@ -119,5 +126,27 @@ describe('ParameterPanel', () => {
 
   it('shows "ft" suffix when units is Imperial', () => {
     expect(mountPanel({ units: 'Imperial' }).text()).toContain('ft')
+  })
+
+  it('renders two select elements', () => {
+    expect(mountPanel().findAll('select')).toHaveLength(2)
+  })
+
+  it('registers contextual content for airfoilProfile on mount', () => {
+    const provide = makeProvide()
+    mount(ParameterPanel, { global: { provide } })
+    const registeredKeys = provide[FOCUSED_PARAM_KEY].register.mock.calls.map((c) => c[0])
+    expect(registeredKeys).toContain('airfoilProfile')
+  })
+
+  it('calls setFocused with "airfoilProfile" when its field receives focus', async () => {
+    const provide = makeProvide()
+    const wrapper = mount(ParameterPanel, { global: { provide } })
+    await wrapper.findAll('a')[0].trigger('focusin')
+    expect(provide[FOCUSED_PARAM_KEY].setFocused).toHaveBeenCalledWith('airfoilProfile')
+  })
+
+  it('reflects current airfoilProfile in the select', () => {
+    expect(mountPanel({ airfoilProfile: 'E168 (12%)' }).findAll('a')[0].text()).toBe('E168 (12%)')
   })
 })

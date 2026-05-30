@@ -8,7 +8,25 @@ function setup(onError = vi.fn()) {
 describe('useAppState', () => {
   it('returns the default state initially', () => {
     const { getState } = setup()
-    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 0, cruisingSpeed: 0, planeType: 'Trainer' })
+    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 0, cruisingSpeed: 0, planeType: 'Trainer', airfoilProfile: null })
+  })
+
+  it('defaults airfoilProfile to null', () => {
+    const { getState } = setup()
+    expect(getState().airfoilProfile).toBeNull()
+  })
+
+  it('setState can update airfoilProfile', () => {
+    const { getState, setState } = setup()
+    setState({ airfoilProfile: 'E168  (12.45%)' })
+    expect(getState().airfoilProfile).toBe('E168  (12.45%)')
+  })
+
+  it('airfoilProfile is not affected when units change', () => {
+    const { getState, setState } = setup()
+    setState({ airfoilProfile: 'E168  (12.45%)' })
+    setState({ units: 'Imperial' })
+    expect(getState().airfoilProfile).toBe('E168  (12.45%)')
   })
 
   it('defaults planeType to Trainer', () => {
