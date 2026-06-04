@@ -11,6 +11,9 @@ import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import BaseAnchor from '@/components/BaseAnchor.vue'
 import ParameterRow from './ParameterRow.vue'
+import {
+  ArrowTopRightOnSquareIcon,
+  } from '@heroicons/vue/24/outline'
 
 const { getState, setState } = inject(APP_STATE_KEY)
 const { distanceUnit, wingLoadingUnit, speedUnit, system, convertDistance, convertWingLoading, convertSpeed } = useUnits()
@@ -116,6 +119,15 @@ const airfoilProfile = computed({
   set: (v) => setState({ airfoilProfile: v === '' ? null : v }),
 })
 
+const airfoil_link = computed(() => {
+  const url = new URL('/airfoil.html', window.location.origin)
+  url.searchParams.append('units', units.value)
+  url.searchParams.append('altitude', siteAltitude.value)
+  url.searchParams.append('wingLoading', wingLoading.value)
+  url.searchParams.append('speed', cruisingSpeed.value)
+  return url.href
+});
+
 function onPanelFocusOut(e) {
   // Only clear when focus leaves the panel entirely, not when moving between fields
   if (!e.currentTarget.contains(e.relatedTarget)) {
@@ -150,11 +162,17 @@ function onPanelFocusOut(e) {
         </ParameterRow>
       </div>
 
-      <div @focusin="setFocused('airfoilProfile')">
-        <ParameterRow label="Airfoil Profile" input-id="param-airfoil-profile">
-          <!-- BaseSelect id="param-airfoil-profile" v-model="airfoilProfile" :options="airfoilOptions" / -->
-          <BaseAnchor id="param-airfoil-profile" v-model="airfoilProfile" />
-        </ParameterRow>
+      <div class="relative">
+        <div @focusin="setFocused('airfoilProfile')">
+          <ParameterRow label="Airfoil Selection" input-id="param-airfoil-profile">
+            <BaseAnchor id="param-airfoil-profile" v-model="airfoilProfile" />
+          </ParameterRow>
+        </div>
+        <div class="absolute z-20 top-0 right-0 text-xs text-indigo-400 underline hover:text-indigo-500">
+          <a target="_blank" :href="airfoil_link">
+            <ArrowTopRightOnSquareIcon class="w-4 h-4" />
+          </a>
+        </div>
       </div>
 
       <div @focusin="setFocused('siteAltitude')">
