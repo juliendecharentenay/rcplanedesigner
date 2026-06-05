@@ -4,6 +4,7 @@ import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
 import { useUnits } from '@/pages/index/composables/useUnits'
 import { FOCUSED_PARAM_KEY } from '@/pages/index/composables/useFocusedParam'
 import { UNIT_SYSTEMS } from '@/units/units'
+import { useAirfoil } from '../composables/useAirfoil'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import ParameterRow from '@/pages/index/components/ParameterRow.vue'
@@ -11,7 +12,12 @@ import ParameterRow from '@/pages/index/components/ParameterRow.vue'
 const { getState, setState } = inject(APP_STATE_KEY)
 const { distanceUnit, wingLoadingUnit, speedUnit, system } = useUnits()
 const { register, setFocused, clearFocused } = inject(FOCUSED_PARAM_KEY)
+const { airfoilList, selectedAirfoilData, setSelectedAirfoil } = useAirfoil()
 
+register('airfoil', {
+  title: 'Airfoil Profile',
+  body: 'The cross-sectional shape of the wing. Each profile has a unique lift, drag, and moment characteristic described by its polar curves.',
+})
 register('units', {
   title: 'Unit System',
   body: 'Switches all measurements between SI (metric) and Imperial. Existing values are converted automatically when the system changes.',
@@ -62,7 +68,7 @@ function onPanelFocusOut(e) {
 
 <template>
   <aside
-    class="absolute left-0 top-0 bottom-0 z-10 flex flex-col min-w-48 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl rounded-br-xl"
+    class="flex flex-col min-w-48 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl rounded-br-xl"
     @focusout="onPanelFocusOut"
   >
     <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
@@ -73,6 +79,17 @@ function onPanelFocusOut(e) {
     </div>
 
     <div class="flex flex-col gap-4 px-4 py-4 overflow-y-auto">
+      <div @focusin="setFocused('airfoil')">
+        <ParameterRow label="Airfoil" input-id="param-airfoil">
+          <BaseSelect
+            id="param-airfoil"
+            :model-value="selectedAirfoilData.profileName"
+            :options="airfoilList"
+            @update:model-value="setSelectedAirfoil"
+          />
+        </ParameterRow>
+      </div>
+
       <div @focusin="setFocused('units')">
         <ParameterRow label="Units" input-id="param-units">
           <BaseSelect id="param-units" v-model="units" :options="UNIT_SYSTEMS" />

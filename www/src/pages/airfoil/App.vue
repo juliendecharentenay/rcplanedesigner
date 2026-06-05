@@ -1,23 +1,34 @@
 <script setup>
-import { provide, readonly, ref, watch, onMounted } from 'vue'
+import { provide, readonly, ref, computed, watch, onMounted } from 'vue'
+import airfoilData from '@/assets/airfoils.json'
+import { computeCruiseCL } from '@/js/liftCoefficient'
 import { useError, SET_ERROR_KEY } from '@/composables/useError'
 import { useFocusedParam, FOCUSED_PARAM_KEY } from '@/pages/index/composables/useFocusedParam'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
 import { convertDistance, convertWingLoading, convertSpeed } from '@/units/units'
+import { AIRFOIL_KEY } from './composables/useAirfoil'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import AppHeader from '@/pages/index/components/AppHeader.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
+import TabView from './components/TabView.vue'
+import PolarChart from './components/PolarChart.vue'
+import AirfoilViewerTab from './components/AirfoilViewerTab.vue'
+import ComparisonTab from './components/ComparisonTab.vue'
 
 const { error, setError, clearError } = useError()
 provide(SET_ERROR_KEY, setError)
 
+const VALID_TABS = ['Polar', 'Airfoil Viewer', 'Comparison']
+const activeTab = ref('Polar')
+
 // — State —
 // Each numeric field is stored in the current unit system (SI or Imperial).
 const state = ref({
-  units:         'SI', // 'SI' | 'Imperial'
-  siteAltitude:  0,    // metres (SI) or feet (Imperial)
-  wingLoading:   0,    // g/sq.dm (SI) or oz/sq.ft (Imperial)
-  cruisingSpeed: 0,    // m/s (SI) or mph (Imperial)
+  units:           'SI', // 'SI' | 'Imperial'
+  siteAltitude:    0,    // metres (SI) or feet (Imperial)
+  wingLoading:     0,    // g/sq.dm (SI) or oz/sq.ft (Imperial)
+  cruisingSpeed:   0,    // m/s (SI) or mph (Imperial)
+  selectedAirfoil: airfoilData[0].profileName,
 })
 
 function getState() {
@@ -41,31 +52,63 @@ function setState(partial) {
 provide(APP_STATE_KEY, { getState, setState })
 provide(FOCUSED_PARAM_KEY, useFocusedParam())
 
+// — Airfoil —
+const airfoilList = airfoilData.map(a => ({ value: a.profileName, label: a.profileName }))
+
+const selectedAirfoilData = computed(() =>
+  airfoilData.find(a => a.profileName === state.value.selectedAirfoil) ?? airfoilData[0]
+)
+
+function setSelectedAirfoil(profileName) {
+  setState({ selectedAirfoil: profileName })
+}
+
+provide(AIRFOIL_KEY, { airfoilList, selectedAirfoilData, setSelectedAirfoil })
+
+// — Target CL —
+// Convert state to SI before calling computeCruiseCL (which expects SI units)
+const targetCl = computed(() => {
+  const s = state.value
+  const wl  = s.units === 'Imperial' ? convertWingLoading(s.wingLoading,  'Imperial', 'SI') : s.wingLoading
+  const spd = s.units === 'Imperial' ? convertSpeed(s.cruisingSpeed,      'Imperial', 'SI') : s.cruisingSpeed
+  const alt = s.units === 'Imperial' ? convertDistance(s.siteAltitude,    'Imperial', 'SI') : s.siteAltitude
+  return computeCruiseCL(wl, spd, alt)
+})
+
 // — URL sync —
 // Params are stored in the current display unit system so URLs are human-readable.
 // The 'units' param is always written first so consumers can interpret the others.
+// Default values are omitted to keep URLs short.
 
 onMounted(() => {
   try {
     const params = new URLSearchParams(window.location.search)
-    const units        = params.get('units') === 'Imperial' ? 'Imperial' : 'SI'
-    const siteAltitude = Number(params.get('altitude')    ?? 0) || 0
-    const wingLoading  = Number(params.get('wingLoading') ?? 0) || 0
-    const cruisingSpeed = Number(params.get('speed')      ?? 0) || 0
-    // Set the numeric values directly in whichever unit system the URL declared.
-    state.value = { units, siteAltitude, wingLoading, cruisingSpeed }
+    const units         = params.get('units') === 'Imperial' ? 'Imperial' : 'SI'
+    const siteAltitude  = Number(params.get('altitude')    ?? 0) || 0
+    const wingLoading   = Number(params.get('wingLoading') ?? 0) || 0
+    const cruisingSpeed = Number(params.get('speed')       ?? 0) || 0
+    const airfoilParam  = params.get('airfoil')
+    const selectedAirfoil =
+      airfoilData.find(a => a.profileName === airfoilParam)?.profileName ?? airfoilData[0].profileName
+    const tabParam = params.get('tab')
+    if (VALID_TABS.includes(tabParam)) activeTab.value = tabParam
+
+    state.value = { units, siteAltitude, wingLoading, cruisingSpeed, selectedAirfoil }
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
   }
 })
 
-watch(state, (s) => {
+watch([state, activeTab], ([s, tab]) => {
   try {
     const params = new URLSearchParams()
     params.set('units', s.units)
     if (s.siteAltitude)  params.set('altitude',    s.siteAltitude)
     if (s.wingLoading)   params.set('wingLoading',  s.wingLoading)
     if (s.cruisingSpeed) params.set('speed',        s.cruisingSpeed)
+    if (s.selectedAirfoil !== airfoilData[0].profileName)
+      params.set('airfoil', s.selectedAirfoil)
+    if (tab !== VALID_TABS[0]) params.set('tab', tab)
     history.replaceState(null, '', '?' + params.toString())
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
@@ -80,8 +123,18 @@ watch(state, (s) => {
     <AppHeader />
     <div class="relative flex flex-1 overflow-hidden">
       <ParameterPanel />
-      <main class="flex-1 overflow-auto ml-48">
-        <!-- airfoil detail content goes here -->
+      <main class="flex-1 overflow-hidden flex flex-col">
+        <TabView v-model="activeTab" :tabs="VALID_TABS" class="flex-1 flex flex-col">
+          <template #Polar>
+            <PolarChart :airfoil="selectedAirfoilData" :target-cl="targetCl" class="flex-1" />
+          </template>
+          <template #AirfoilViewer>
+            <AirfoilViewerTab class="flex-1" />
+          </template>
+          <template #Comparison>
+            <ComparisonTab :target-cl="targetCl" class="flex-1" />
+          </template>
+        </TabView>
       </main>
     </div>
   </div>
