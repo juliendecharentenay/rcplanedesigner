@@ -23,12 +23,21 @@ const activeTab = ref('Polar')
 
 // — State —
 // Each numeric field is stored in the current unit system (SI or Imperial).
+const VALID_COMPARISON_METRICS = [
+  'cruiseCl', 'cruiseAoa', 'cruiseCd', 'cruiseCm', 'cruiseDeltaAoA',
+  'stallAoa', 'stallCl', 'stallCd', 'stallCm',
+  'landingAoa', 'landingCl', 'landingCd', 'landingCm',
+  'cruiseSpeed', 'stallSpeed', 'landingSpeed',
+]
+
 const state = ref({
   units:           'SI', // 'SI' | 'Imperial'
   siteAltitude:    0,    // metres (SI) or feet (Imperial)
   wingLoading:     0,    // g/sq.dm (SI) or oz/sq.ft (Imperial)
   cruisingSpeed:   0,    // m/s (SI) or mph (Imperial)
   selectedAirfoil: airfoilData[0].profileName,
+  comparisonX:     'cruiseAoa',
+  comparisonY:     'cruiseCl',
 })
 
 function getState() {
@@ -93,7 +102,12 @@ onMounted(() => {
     const tabParam = params.get('tab')
     if (VALID_TABS.includes(tabParam)) activeTab.value = tabParam
 
-    state.value = { units, siteAltitude, wingLoading, cruisingSpeed, selectedAirfoil }
+    const cmpXParam = params.get('cmpX')
+    const cmpYParam = params.get('cmpY')
+    const comparisonX = VALID_COMPARISON_METRICS.includes(cmpXParam) ? cmpXParam : 'cruiseAoa'
+    const comparisonY = VALID_COMPARISON_METRICS.includes(cmpYParam) ? cmpYParam : 'cruiseCl'
+
+    state.value = { units, siteAltitude, wingLoading, cruisingSpeed, selectedAirfoil, comparisonX, comparisonY }
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
   }
@@ -109,6 +123,8 @@ watch([state, activeTab], ([s, tab]) => {
     if (s.selectedAirfoil !== airfoilData[0].profileName)
       params.set('airfoil', s.selectedAirfoil)
     if (tab !== VALID_TABS[0]) params.set('tab', tab)
+    if (s.comparisonX !== 'cruiseAoa') params.set('cmpX', s.comparisonX)
+    if (s.comparisonY !== 'cruiseCl')  params.set('cmpY', s.comparisonY)
     history.replaceState(null, '', '?' + params.toString())
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
