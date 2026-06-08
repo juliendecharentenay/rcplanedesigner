@@ -8,6 +8,8 @@ const props = defineProps({
   yLabel: { type: String, required: true },
 })
 
+const emit = defineEmits(['select:airfoil'])
+
 const containerEl = ref(null)
 const svgEl       = ref(null)
 const containerW  = ref(0)
@@ -106,46 +108,6 @@ function draw() {
     .attr('text-anchor', 'middle').attr('fill', '#64748b').attr('font-size', '12px')
     .text(props.yLabel)
 
-  // Tooltip group (hidden until hover)
-  const tooltip = g.append('g').style('display', 'none').style('pointer-events', 'none')
-  const tooltipBg = tooltip.append('rect')
-    .attr('rx', 4).attr('ry', 4)
-    .attr('fill', 'white')
-    .attr('stroke', '#e2e8f0')
-    .attr('stroke-width', 1)
-  const tooltipName = tooltip.append('text').attr('font-size', '11px').attr('font-weight', '600').attr('fill', '#1e293b')
-  const tooltipX    = tooltip.append('text').attr('font-size', '10px').attr('fill', '#475569')
-  const tooltipY    = tooltip.append('text').attr('font-size', '10px').attr('fill', '#475569')
-
-  function showTooltip(event, d) {
-    const [mx, my] = d3.pointer(event, g.node())
-    const pad = 6, lineH = 14
-    tooltipName.text(d.profileName)
-    tooltipX.text(`${props.xLabel}: ${fmt(d.x)}`)
-    tooltipY.text(`${props.yLabel}: ${fmt(d.y)}`)
-
-    // Measure text width for background sizing
-    const textWidths = [tooltipName, tooltipX, tooltipY].map(t => t.node().getComputedTextLength())
-    const bw = Math.max(...textWidths) + pad * 2
-    const bh = lineH * 3 + pad * 2
-
-    // Position tooltip so it stays within the chart
-    let tx = mx + 10
-    let ty = my - bh - 4
-    if (tx + bw > iW) tx = mx - bw - 10
-    if (ty < 0) ty = my + 10
-
-    tooltipBg.attr('x', tx).attr('y', ty).attr('width', bw).attr('height', bh)
-    tooltipName.attr('x', tx + pad).attr('y', ty + pad + lineH - 2)
-    tooltipX.attr('x', tx + pad).attr('y', ty + pad + lineH * 2 - 2)
-    tooltipY.attr('x', tx + pad).attr('y', ty + pad + lineH * 3 - 2)
-    tooltip.style('display', null)
-  }
-
-  function hideTooltip() {
-    tooltip.style('display', 'none')
-  }
-
   // Draw non-selected airfoils first, then selected on top
   const others   = props.data.filter(d => !d.isSelected)
   const selected = props.data.filter(d =>  d.isSelected)
@@ -163,6 +125,7 @@ function draw() {
     .style('cursor', 'pointer')
     .on('mouseover', showTooltip)
     .on('mouseleave', hideTooltip)
+    .on('click', (_, d) => emit('select:airfoil', d.profileName))
 
   g.selectAll('.pt-selected')
     .data(selected)
@@ -177,6 +140,50 @@ function draw() {
     .style('cursor', 'pointer')
     .on('mouseover', showTooltip)
     .on('mouseleave', hideTooltip)
+    .on('click', (_, d) => emit('select:airfoil', d.profileName))
+
+  // Tooltip group (hidden until hover)
+  const tooltip = g.append('g').style('display', 'none').style('pointer-events', 'none')
+  const tooltipBg = tooltip.append('rect')
+    .attr('rx', 4).attr('ry', 4)
+    .attr('fill', 'white')
+    .attr('fill-opacity', 0.7)
+    .attr('stroke', '#e2e8f0')
+    .attr('stroke-width', 1)
+  const tooltipName = tooltip.append('text').attr('font-size', '11px').attr('font-weight', '600').attr('fill', '#1e293b')
+  const tooltipX    = tooltip.append('text').attr('font-size', '10px').attr('fill', '#475569')
+  const tooltipY    = tooltip.append('text').attr('font-size', '10px').attr('fill', '#475569')
+
+  function showTooltip(event, d) {
+    const [mx, my] = d3.pointer(event, g.node())
+    const pad = 6, lineH = 14
+    tooltipName.text(d.profileName)
+    tooltipX.text(`${props.xLabel}: ${fmt(d.x)}`)
+    tooltipY.text(`${props.yLabel}: ${fmt(d.y)}`)
+
+    // Make visible before measuring — getComputedTextLength() returns 0 on hidden elements
+    tooltip.style('display', null)
+
+    const textWidths = [tooltipName, tooltipX, tooltipY].map(t => t.node().getComputedTextLength())
+    const bw = Math.max(...textWidths) + pad * 2
+    const bh = lineH * 3 + pad * 2
+
+    // Position tooltip so it stays within the chart
+    let tx = mx + 10
+    let ty = my - bh - 4
+    if (tx + bw > iW) tx = mx - bw - 10
+    if (ty < 0) ty = my + 10
+
+    tooltipBg.attr('x', tx).attr('y', ty).attr('width', bw).attr('height', bh)
+    tooltipName.attr('x', tx + pad).attr('y', ty + pad + lineH - 2)
+    tooltipX.attr('x', tx + pad).attr('y', ty + pad + lineH * 2 - 2)
+    tooltipY.attr('x', tx + pad).attr('y', ty + pad + lineH * 3 - 2)
+  }
+
+  function hideTooltip() {
+    tooltip.style('display', 'none')
+  }
+
 }
 </script>
 

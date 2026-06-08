@@ -17,7 +17,7 @@ const props = defineProps({
   targetCl: { default: null },
 })
 
-const { selectedAirfoilData } = useAirfoil()
+const { selectedAirfoilData, setSelectedAirfoil } = useAirfoil()
 const { getState, setState } = inject(APP_STATE_KEY)
 const { speedUnit } = useUnits()
 
@@ -145,6 +145,7 @@ const hasData = computed(() => chartData.value.length > 0)
       :x-label="xAxisLabel"
       :y-label="yAxisLabel"
       class="flex-1 min-h-0"
+      @select:airfoil="setSelectedAirfoil"
     />
   </div>
 </template>
