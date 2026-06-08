@@ -145,7 +145,7 @@ watch([state, activeTab], ([s, tab]) => {
             <PolarChart :airfoil="selectedAirfoilData" :target-cl="targetCl" class="flex-1" />
           </template>
           <template #AirfoilViewer>
-            <AirfoilViewerTab class="flex-1" />
+            <AirfoilViewerTab :target-cl="targetCl" class="flex-1" />
           </template>
           <template #Comparison>
             <ComparisonTab :target-cl="targetCl" class="flex-1" />

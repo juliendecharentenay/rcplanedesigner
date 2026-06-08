@@ -1,9 +1,12 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
+import { interpolateAoA } from '@/js/interpolateAoA'
+import { getStallParameters, getLandingParameters } from '@/js/stallParameters'
 
 const props = defineProps({
-  airfoil: { type: Object, default: null },
+  airfoil:  { type: Object, default: null },
+  targetCl: { default: null },
 })
 
 const containerEl = ref(null)
@@ -11,7 +14,7 @@ const svgEl       = ref(null)
 const containerW  = ref(0)
 const containerH  = ref(0)
 
-const MARGIN = { top: 40, right: 20, bottom: 20, left: 20 }
+const MARGIN = { top: 40, right: 20, bottom: 20, left: 130 }
 
 let ro = null
 
@@ -26,13 +29,32 @@ onMounted(() => {
 onUnmounted(() => ro?.disconnect())
 
 watch(
-  [() => props.airfoil, containerW, containerH],
+  [() => props.airfoil, () => props.targetCl, containerW, containerH],
   () => {
     if (!props.airfoil || !svgEl.value || containerW.value === 0) return
     draw()
   },
   { flush: 'post', immediate: true },
 )
+
+function aoaAnnotations() {
+  const a = props.airfoil
+  const zeroLiftAoA = a.zeroLiftAoA ?? 0
+  const stall   = getStallParameters(a)
+  const landing = getLandingParameters(a)
+  const cruiseAoa = props.targetCl != null ? interpolateAoA(a.polar, props.targetCl) : null
+
+  return [
+    { aoa: zeroLiftAoA,       label: `ZL ${zeroLiftAoA.toFixed(1)}°`,          color: '#64748b' },
+    ...(cruiseAoa != null
+      ? [{ aoa: cruiseAoa,    label: `Cruise ${cruiseAoa.toFixed(1)}°`,         color: '#3b82f6' }]
+      : []),
+    ...(landing != null
+      ? [{ aoa: landing.landingAoa, label: `Land. ${landing.landingAoa.toFixed(1)}°`, color: '#16a34a' }]
+      : []),
+    { aoa: stall.stallAoa,    label: `Stall ${stall.stallAoa.toFixed(1)}°`,     color: '#dc2626' },
+  ]
+}
 
 function draw() {
   const { x, y } = props.airfoil.coord
@@ -74,6 +96,24 @@ function draw() {
     .domain([yLo, yHi])
     .range([yMid + yPixels / 2, yMid - yPixels / 2])
 
+  const annotations = aoaAnnotations()
+
+  // Arrowhead markers (one per annotation to allow individual colours)
+  const defs = svg.append('defs')
+  annotations.forEach((entry, i) => {
+    defs.append('marker')
+      .attr('id', `qc-arr-${i}`)
+      .attr('viewBox', '0 -4 8 8')
+      .attr('refX', 8)
+      .attr('refY', 0)
+      .attr('markerWidth', 5)
+      .attr('markerHeight', 5)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-4L8,0L0,4Z')
+      .attr('fill', entry.color)
+  })
+
   // Airfoil profile
   const lineGen = d3.line().x(d => xScale(d[0])).y(d => yScale(d[1]))
   g.append('path')
@@ -93,6 +133,68 @@ function draw() {
       ax.selectAll('line').attr('stroke', '#94a3b8')
       ax.selectAll('text').attr('fill', '#64748b').attr('font-size', '11px')
     })
+
+  // Quarter chord: tip point on the chord line
+  const qcX = xScale(0.25)
+  const qcY = yScale(0)
+
+  // AoA arrows — tails in the left margin, tips at the quarter-chord point.
+  // Arrow length = 30% of chord width in pixels (≈ "20% of airfoil width" per spec;
+  // chosen so tails land left of the leading edge for typical AoA values ≤ ~30°).
+  const arrowLen = 0.15 * iW
+  const startLen = 0.2 * iW
+
+  annotations.forEach((entry, i) => {
+    const rad  = entry.aoa * Math.PI / 180
+    // SVG y increases downward; positive AoA (nose up) → flow from below-left.
+    const tailX = qcX - (startLen + arrowLen) * Math.cos(rad)
+    const tailY = qcY + (startLen + arrowLen) * Math.sin(rad)
+    const tipX = qcX - startLen * Math.cos(rad)
+    const tipY = qcY + startLen * Math.sin(rad)
+
+    g.append('line')
+      .attr('x1', tailX)
+      .attr('y1', tailY)
+      .attr('x2', tipX)
+      .attr('y2', tipY)
+      .attr('stroke', entry.color)
+      .attr('stroke-width', 1.5)
+      .attr('marker-end', `url(#qc-arr-${i})`)
+
+    // Label at tail, right-aligned so it extends further left
+    g.append('text')
+      .attr('x', tailX - 5)
+      .attr('y', tailY)
+      .attr('text-anchor', 'end')
+      .attr('dominant-baseline', 'middle')
+      .attr('fill', entry.color)
+      .attr('font-size', '10px')
+      .text(entry.label)
+  })
+
+  // Quarter-chord symbol: circle with alternating transparent/dark-gray quadrants
+  const qcR = 6
+  const qcGroup = g.append('g')
+  // Draw 4 pie wedges; quadrants 0 and 2 filled, 1 and 3 transparent
+  ;[0, 1, 2, 3].forEach(q => {
+    const startAngle = (q * Math.PI) / 2
+    const endAngle   = startAngle + Math.PI / 2
+    const x1 = qcR * Math.cos(startAngle)
+    const y1 = qcR * Math.sin(startAngle)
+    const x2 = qcR * Math.cos(endAngle)
+    const y2 = qcR * Math.sin(endAngle)
+    qcGroup.append('path')
+      .attr('d', `M0,0 L${x1},${y1} A${qcR},${qcR} 0 0,1 ${x2},${y2} Z`)
+      .attr('transform', `translate(${qcX},${qcY})`)
+      .attr('fill', q % 2 === 0 ? '#1e293b' : 'transparent')
+  })
+  qcGroup.append('circle')
+    .attr('cx', qcX)
+    .attr('cy', qcY)
+    .attr('r', qcR)
+    .attr('fill', 'none')
+    .attr('stroke', '#1e293b')
+    .attr('stroke-width', 1)
 }
 </script>
 
