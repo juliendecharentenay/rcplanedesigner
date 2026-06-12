@@ -47,9 +47,11 @@ const selectedProfile = computed(() => getState().airfoilProfile)
             @click="setState({ airfoilProfile: airfoil.profileName })"
           >
             <td class="px-3 py-1.5 font-medium">{{ airfoil.profileName }}</td>
-            <td class="px-3 py-1.5 text-right tabular-nums">{{ airfoil.zeroLiftAoA.toFixed(2) }}°</td>
-            <td class="px-3 py-1.5 text-right tabular-nums">{{ airfoil.stall_aoa }}°</td>
-            <td class="px-3 py-1.5 text-right tabular-nums">{{ airfoil.stall_clmax.toFixed(3) }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums">
+              {{ airfoil.zeroLiftAoA ? `${airfoil.zeroLiftAoA.toFixed(2)}°` : '-' }}
+            </td>
+            <td class="px-3 py-1.5 text-right tabular-nums">{{ airfoil.stall_aoa ? `${airfoil.stall_aoa}°` : '-' }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums">{{ airfoil.stall_clmax ? airfoil.stall_clmax.toFixed(3) : '-' }}</td>
           </tr>
         </tbody>
       </table>
