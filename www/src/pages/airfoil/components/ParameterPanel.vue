@@ -7,7 +7,7 @@ import { UNIT_SYSTEMS } from '@/units/units'
 import { useAirfoil } from '../composables/useAirfoil'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
-import ParameterRow from '@/pages/index/components/ParameterRow.vue'
+import ParameterRow from '@/components/ParameterRow.vue'
 
 const { getState, setState } = inject(APP_STATE_KEY)
 const { distanceUnit, wingLoadingUnit, speedUnit, system } = useUnits()

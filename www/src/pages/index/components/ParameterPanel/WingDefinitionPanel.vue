@@ -6,7 +6,7 @@ import { SET_ERROR_KEY } from '@/composables/useError.js'
 import { FOCUSED_PARAM_KEY } from '../../composables/useFocusedParam.js'
 import { atmosphere } from '@/js/atmosphere.js'
 import { convertDistance, convertSpeed } from '@/units/units.js'
-import ParameterRow from './ParameterRow.vue'
+import ParameterRow from '@/components/ParameterRow.vue'
 import BaseInput from '@/components/BaseInput.vue'
 
 const setError = inject(SET_ERROR_KEY)

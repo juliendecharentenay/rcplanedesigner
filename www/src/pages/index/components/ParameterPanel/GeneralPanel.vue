@@ -9,7 +9,7 @@ import { AirfoilAnalyser } from '@/js/AirfoilAnalyser.js'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import BaseAnchor from '@/components/BaseAnchor.vue'
-import ParameterRow from './ParameterRow.vue'
+import ParameterRow from '@/components/ParameterRow.vue'
 import {
   ArrowTopRightOnSquareIcon,
   } from '@heroicons/vue/24/outline'
