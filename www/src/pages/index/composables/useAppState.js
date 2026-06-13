@@ -9,6 +9,19 @@ export const PLANE_TYPES = [
   { value: 'Acrobatic', label: 'Acrobatic' },
 ]
 
+export const STATE_DEFAULTS = {
+    units:          'SI',      // 'SI' | 'Imperial'
+    siteAltitude:   0,         // metres (SI) or feet (Imperial)
+    wingLoading:    45,        // g/sq.dm (SI) or oz/sq.ft (Imperial)
+    cruisingSpeed:  15,        // m/s (SI) or mph (Imperial)
+    planeType:      'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
+    airfoilProfile: null,      // profileName string or null (no selection)
+    wingSpan:       1.5,       // metres (SI) or feet (Imperial)
+    rootChord:      0.3,       // metres (SI) or feet (Imperial)
+    tipChord:       0.2,       // metres (SI) or feet (Imperial)
+    sweepAngle:     0,         // degrees (no unit conversion)
+}
+
 /**
  * @param {(err: Error) => void} onError - called when a state operation fails
  */
@@ -28,18 +41,7 @@ export function useAppState(onError) {
   //
   //      This keeps the numeric value consistent with the selected unit system
   //      in a single atomic state update.
-  const state = ref({
-    units:          'SI',      // 'SI' | 'Imperial'
-    siteAltitude:   0,         // metres (SI) or feet (Imperial)
-    wingLoading:    0,         // g/sq.dm (SI) or oz/sq.ft (Imperial)
-    cruisingSpeed:  0,         // m/s (SI) or mph (Imperial)
-    planeType:      'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
-    airfoilProfile: null,      // profileName string or null (no selection)
-    wingSpan:       0,         // metres (SI) or feet (Imperial)
-    rootChord:      0,         // metres (SI) or feet (Imperial)
-    tipChord:       0,         // metres (SI) or feet (Imperial)
-    sweepAngle:     0,         // degrees (no unit conversion)
-  })
+  const state = ref({...STATE_DEFAULTS})
 
   // — Accessors —
 

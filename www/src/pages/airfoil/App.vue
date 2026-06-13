@@ -1,11 +1,12 @@
 <script setup>
-import { provide, readonly, ref, computed, watch, onMounted } from 'vue'
+import { provide, ref, computed, watch, onMounted } from 'vue'
 import airfoilData from '@/assets/airfoils.json'
 import { AirfoilAnalyser } from '@/js/AirfoilAnalyser'
 import { useError, SET_ERROR_KEY } from '@/composables/useError'
 import { useFocusedParam, FOCUSED_PARAM_KEY } from '@/pages/index/composables/useFocusedParam'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
 import { convertDistance, convertWingLoading, convertSpeed } from '@/units/units'
+import { useAirfoilState, STATE_DEFAULTS } from './composables/useAirfoilState'
 import { AIRFOIL_KEY } from './composables/useAirfoil'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import AppHeader from '@/pages/index/components/AppHeader.vue'
@@ -30,33 +31,9 @@ const VALID_COMPARISON_METRICS = [
   'cruiseSpeed', 'stallSpeed', 'landingSpeed',
 ]
 
-const state = ref({
-  units:           'SI', // 'SI' | 'Imperial'
-  siteAltitude:    0,    // metres (SI) or feet (Imperial)
-  wingLoading:     0,    // g/sq.dm (SI) or oz/sq.ft (Imperial)
-  cruisingSpeed:   0,    // m/s (SI) or mph (Imperial)
-  selectedAirfoil: airfoilData[0].profileName,
-  comparisonX:     'cruiseAoa',
-  comparisonY:     'cruiseCl',
-})
+const URL_DEFAULTS = { ...STATE_DEFAULTS, activeTab: VALID_TABS[0] }
 
-function getState() {
-  return readonly(state.value)
-}
-
-function setState(partial) {
-  try {
-    const next = { ...state.value, ...partial }
-    if ('units' in partial && partial.units !== state.value.units) {
-      next.siteAltitude  = convertDistance(state.value.siteAltitude,  state.value.units, partial.units)
-      next.wingLoading   = convertWingLoading(state.value.wingLoading, state.value.units, partial.units)
-      next.cruisingSpeed = convertSpeed(state.value.cruisingSpeed,     state.value.units, partial.units)
-    }
-    state.value = next
-  } catch (err) {
-    setError(err instanceof Error ? err : new Error(String(err)))
-  }
-}
+const { getState, setState } = useAirfoilState(setError)
 
 provide(APP_STATE_KEY, { getState, setState })
 provide(FOCUSED_PARAM_KEY, useFocusedParam())
@@ -66,7 +43,7 @@ const analysers = airfoilData.map(entry => new AirfoilAnalyser(entry))
 const airfoilList = analysers.map(a => ({ value: a.profileName, label: a.profileName }))
 
 const selectedAirfoilData = computed(() =>
-  analysers.find(a => a.profileName === state.value.selectedAirfoil) ?? analysers[0]
+  analysers.find(a => a.profileName === getState().selectedAirfoil) ?? analysers[0]
 )
 
 function setSelectedAirfoil(profileName) {
@@ -78,7 +55,7 @@ provide(AIRFOIL_KEY, { airfoilList, selectedAirfoilData, setSelectedAirfoil })
 // — Target CL and Cruise AoA —
 // Convert state to SI before calling getCruiseConditions (which expects SI units)
 const targetCl = computed(() => {
-  const s = state.value
+  const s = getState()
   const wl  = s.units === 'Imperial' ? convertWingLoading(s.wingLoading,  'Imperial', 'SI') : s.wingLoading
   const spd = s.units === 'Imperial' ? convertSpeed(s.cruisingSpeed,      'Imperial', 'SI') : s.cruisingSpeed
   const alt = s.units === 'Imperial' ? convertDistance(s.siteAltitude,    'Imperial', 'SI') : s.siteAltitude
@@ -99,33 +76,33 @@ onMounted(() => {
     const cruisingSpeed = Number(params.get('speed')       ?? 0) || 0
     const airfoilParam  = params.get('airfoil')
     const selectedAirfoil =
-      analysers.find(a => a.profileName === airfoilParam)?.profileName ?? analysers[0].profileName
+      analysers.find(a => a.profileName === airfoilParam)?.profileName ?? URL_DEFAULTS.selectedAirfoil
     const tabParam = params.get('tab')
     if (VALID_TABS.includes(tabParam)) activeTab.value = tabParam
 
     const cmpXParam = params.get('cmpX')
     const cmpYParam = params.get('cmpY')
-    const comparisonX = VALID_COMPARISON_METRICS.includes(cmpXParam) ? cmpXParam : 'cruiseAoa'
-    const comparisonY = VALID_COMPARISON_METRICS.includes(cmpYParam) ? cmpYParam : 'cruiseCl'
+    const comparisonX = VALID_COMPARISON_METRICS.includes(cmpXParam) ? cmpXParam : URL_DEFAULTS.comparisonX
+    const comparisonY = VALID_COMPARISON_METRICS.includes(cmpYParam) ? cmpYParam : URL_DEFAULTS.comparisonY
 
-    state.value = { units, siteAltitude, wingLoading, cruisingSpeed, selectedAirfoil, comparisonX, comparisonY }
+    setState({ units, siteAltitude, wingLoading, cruisingSpeed, selectedAirfoil, comparisonX, comparisonY })
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
   }
 })
 
-watch([state, activeTab], ([s, tab]) => {
+watch([() => getState(), activeTab], ([s, tab]) => {
   try {
     const params = new URLSearchParams()
     params.set('units', s.units)
     if (s.siteAltitude)  params.set('altitude',    s.siteAltitude)
     if (s.wingLoading)   params.set('wingLoading',  s.wingLoading)
     if (s.cruisingSpeed) params.set('speed',        s.cruisingSpeed)
-    if (s.selectedAirfoil !== analysers[0].profileName)
+    if (s.selectedAirfoil !== URL_DEFAULTS.selectedAirfoil)
       params.set('airfoil', s.selectedAirfoil)
-    if (tab !== VALID_TABS[0]) params.set('tab', tab)
-    if (s.comparisonX !== 'cruiseAoa') params.set('cmpX', s.comparisonX)
-    if (s.comparisonY !== 'cruiseCl')  params.set('cmpY', s.comparisonY)
+    if (tab !== URL_DEFAULTS.activeTab) params.set('tab', tab)
+    if (s.comparisonX !== URL_DEFAULTS.comparisonX) params.set('cmpX', s.comparisonX)
+    if (s.comparisonY !== URL_DEFAULTS.comparisonY) params.set('cmpY', s.comparisonY)
     history.replaceState(null, '', '?' + params.toString())
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))

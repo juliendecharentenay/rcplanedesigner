@@ -8,7 +8,7 @@ function setup(onError = vi.fn()) {
 describe('useAppState', () => {
   it('returns the default state initially', () => {
     const { getState } = setup()
-    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 0, cruisingSpeed: 0, planeType: 'Trainer', airfoilProfile: null, wingSpan: 0, rootChord: 0, tipChord: 0, sweepAngle: 0 })
+    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 45, cruisingSpeed: 15, planeType: 'Trainer', airfoilProfile: null, wingSpan: 1.5, rootChord: 0.3, tipChord: 0.2, sweepAngle: 0 })
   })
 
   it('defaults airfoilProfile to null', () => {
@@ -87,9 +87,9 @@ describe('useAppState', () => {
     expect(getState().siteAltitude).toBe(500)
   })
 
-  it('defaults wingLoading to 0', () => {
+  it('defaults wingLoading to 45', () => {
     const { getState } = setup()
-    expect(getState().wingLoading).toBe(0)
+    expect(getState().wingLoading).toBe(45)
   })
 
   it('converts wingLoading from SI to Imperial when units change', () => {
@@ -114,9 +114,9 @@ describe('useAppState', () => {
     expect(getState().wingLoading).toBe(30)
   })
 
-  it('defaults cruisingSpeed to 0', () => {
+  it('defaults cruisingSpeed to 15', () => {
     const { getState } = setup()
-    expect(getState().cruisingSpeed).toBe(0)
+    expect(getState().cruisingSpeed).toBe(15)
   })
 
   it('converts cruisingSpeed from SI to Imperial when units change', () => {
@@ -156,19 +156,19 @@ describe('useAppState', () => {
     expect(snap.siteAltitude).toBe(100)
   })
 
-  it('defaults wingSpan to 0', () => {
+  it('defaults wingSpan to 1.5', () => {
     const { getState } = setup()
-    expect(getState().wingSpan).toBe(0)
+    expect(getState().wingSpan).toBe(1.5)
   })
 
-  it('defaults rootChord to 0', () => {
+  it('defaults rootChord to 0.3', () => {
     const { getState } = setup()
-    expect(getState().rootChord).toBe(0)
+    expect(getState().rootChord).toBe(0.3)
   })
 
-  it('defaults tipChord to 0', () => {
+  it('defaults tipChord to 0.2', () => {
     const { getState } = setup()
-    expect(getState().tipChord).toBe(0)
+    expect(getState().tipChord).toBe(0.2)
   })
 
   it('defaults sweepAngle to 0', () => {

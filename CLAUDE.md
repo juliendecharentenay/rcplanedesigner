@@ -99,21 +99,76 @@ Every component that contains fallible logic (computed properties that access ob
 
 ## Application state
 
-Application state lives in `src/pages/index/composables/useAppState.js`.
+Every page must manage its state in a dedicated `composables/useXxxState.js` composable — never inline in `App.vue`. State must not be managed with a plain `ref` inside `App.vue`.
+
+**Reference implementations:**
+- Index page: `src/pages/index/composables/useAppState.js`
+- Airfoil page: `src/pages/airfoil/composables/useAirfoilState.js`
+
+### Required exports
+
+Each state composable must export two things:
+
+**`STATE_DEFAULTS`** — a plain object that is the single source of truth for every field's default value. Define each default here; never duplicate it elsewhere.
+
+**`useXxxState(onError)`** — a function accepting `(err: Error) => void` and returning `{ getState, setState }`:
 
 ```js
-const { getState, setState } = useAppState(onError)
+export const STATE_DEFAULTS = {
+  units:      'SI',
+  myField:    0,     // metres (SI) or feet (Imperial)
+}
+
+export function useXxxState(onError) {
+  const state = ref({ ...STATE_DEFAULTS })
+
+  function getState() {
+    return readonly(state.value)
+  }
+
+  function setState(partial) {
+    try {
+      const next = { ...state.value, ...partial }
+      if ('units' in partial && partial.units !== state.value.units) {
+        next.myField = convertXxx(state.value.myField, state.value.units, partial.units)
+      }
+      state.value = next
+    } catch (err) {
+      onError(err instanceof Error ? err : new Error(String(err)))
+    }
+  }
+
+  return { getState, setState }
+}
+```
+
+```js
 // getState()        — returns a readonly snapshot of the current state.
 // setState(partial) — shallow-merges partial into state; routes any thrown Error through onError.
 // onError           — (err: Error) => void, injected at construction time (see below).
 ```
 
+### Wiring in App.vue
+
 `App.vue` constructs the composable with `setError` wired in directly, then provides the accessor and modifier to the component tree:
 
 ```js
-const { getState, setState } = useAppState(setError)
+const { getState, setState } = useXxxState(setError)
 provide(APP_STATE_KEY, { getState, setState })
 ```
+
+`App.vue` also builds a `URL_DEFAULTS` object by spreading `STATE_DEFAULTS` and adding any UI-only fields (fields that are tracked in the URL but are not part of the composable state, such as `activeTab`):
+
+```js
+import { STATE_DEFAULTS } from './composables/useXxxState'
+
+const URL_DEFAULTS = {
+  ...STATE_DEFAULTS,
+  activeTab: VALID_TABS[0],   // UI-only, not part of app state
+}
+```
+
+Use `URL_DEFAULTS.*` for all URL comparison and fallback logic — never hard-code literal default values in the watch or onMounted blocks.
 
 Child components inject the state interface:
 
@@ -123,15 +178,21 @@ import { APP_STATE_KEY } from '../composables/useAppState'
 const { getState, setState } = inject(APP_STATE_KEY)
 ```
 
-**Error coupling strategy:** `onError` is passed into `useAppState` at construction (not wrapped by App.vue after the fact). This keeps error messages contextual — the composable knows what failed — and children call state functions without any error-handling boilerplate.
+The watch on state must use a getter function so Vue can track the readonly snapshot reactively:
+
+```js
+watch([() => getState(), activeTab], ([s, tab]) => { ... }, { deep: true })
+```
+
+**Error coupling strategy:** `onError` is passed into the composable at construction (not wrapped by App.vue after the fact). This keeps error messages contextual — the composable knows what failed — and children call state functions without any error-handling boilerplate.
 
 ### Adding a new state field
 
-**Plain fields** (no unit dependency): add the key and default value to the `state` ref — done.
+**Plain fields** (no unit dependency): add the key and default value to `STATE_DEFAULTS` — done.
 
-**Unit-dependent fields** (any physical measurement): three steps, all in `useAppState.js`:
+**Unit-dependent fields** (any physical measurement): three steps, all in `useXxxState.js`:
 
-1. Add the field to `state` with its SI default and a unit comment:
+1. Add the field to `STATE_DEFAULTS` with its SI default and a unit comment:
    ```js
    myField: 0,  // metres (SI) or feet (Imperial)
    ```
@@ -249,4 +310,42 @@ All panel components live in `src/pages/index/components/`.
 **`ActionPanel.vue`** — fixed `w-60` right panel with three sections: View (zoom, fit), Design (generate, reset), Export (SVG, DXF). Uses scoped `@apply` with `@reference "@/style.css"` (required by Tailwind v4 for scoped styles).
 
 > **Tailwind v4 note:** any `<style scoped>` block that uses `@apply` must begin with `@reference "@/style.css";`.
+
+## URL query string synchronisation
+
+Both the index page (`src/pages/index/App.vue`) and the airfoil page (`src/pages/airfoil/App.vue`) sync their full application state to the browser URL so that pages can be bookmarked and shared.
+
+### Approach
+
+URL sync logic lives directly in `App.vue` — no composable. The two-part pattern:
+
+1. **`onMounted` — parse URL into state.** Read `window.location.search`, validate each parameter, and call `setState`. Units are applied first in a separate `setState({ units })` call so that the unit-conversion side-effect in `useAppState` fires before numeric values (which are already in the target unit system) are written in a second `setState` call.
+
+2. **`watch` — serialise state to URL.** A deep watcher on `[() => getState(), activePanel]` writes all non-default fields via `history.replaceState` (no new history entry). When all fields are at their defaults, the URL is reset to `window.location.pathname` with no query string.
+
+### URL_DEFAULTS constant
+
+`App.vue` defines a module-level `URL_DEFAULTS` object built by spreading `STATE_DEFAULTS` (exported from `useAppState.js`) and adding any UI-only fields:
+
+```js
+import { STATE_DEFAULTS } from './composables/useAppState'
+
+const URL_DEFAULTS = {
+  ...STATE_DEFAULTS,
+  activePanel: 'general',   // UI-only, not part of app state
+}
+```
+
+`STATE_DEFAULTS` is the single source of truth for state field defaults — define each default once there, never duplicate it. A field is omitted from the URL when its value equals its `URL_DEFAULTS` entry; this object also drives validation fallbacks during parsing.
+
+### Parameter keys and validation
+
+Each state field maps to a short, human-readable URL key. Numeric fields are validated against a plausible range (e.g. `alt` in `[0, 9000]`); out-of-range or non-numeric values silently fall back to the default. Enum fields (e.g. `type`, `panel`) are accepted only if the parsed value is a known member of the valid set. Unknown URL keys are silently ignored.
+
+### Adding a new state field to URL sync
+
+1. **State fields:** add the default to `STATE_DEFAULTS` in `useAppState.js` (it is automatically inherited by `URL_DEFAULTS`). **UI-only fields** (e.g. `activePanel`): add directly to the `URL_DEFAULTS` literal in `App.vue`.
+2. In the `onMounted` parse block: read and validate the new URL key, assign to a local variable, include it in the `setState` call (or set the ref directly for UI-only fields).
+3. In the `watch` serialise block: add a conditional `params.set(key, serialisedValue)` that runs only when the field differs from its default.
+4. Add test cases to `App.test.js` covering valid, invalid, and absent values.
 
