@@ -1,7 +1,7 @@
 <script setup>
 import { provide, readonly, ref, computed, watch, onMounted } from 'vue'
 import airfoilData from '@/assets/airfoils.json'
-import { computeCruiseCL } from '@/js/liftCoefficient'
+import { AirfoilAnalyser } from '@/js/AirfoilAnalyser'
 import { useError, SET_ERROR_KEY } from '@/composables/useError'
 import { useFocusedParam, FOCUSED_PARAM_KEY } from '@/pages/index/composables/useFocusedParam'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
@@ -62,10 +62,11 @@ provide(APP_STATE_KEY, { getState, setState })
 provide(FOCUSED_PARAM_KEY, useFocusedParam())
 
 // — Airfoil —
-const airfoilList = airfoilData.map(a => ({ value: a.profileName, label: a.profileName }))
+const analysers = airfoilData.map(entry => new AirfoilAnalyser(entry))
+const airfoilList = analysers.map(a => ({ value: a.profileName, label: a.profileName }))
 
 const selectedAirfoilData = computed(() =>
-  airfoilData.find(a => a.profileName === state.value.selectedAirfoil) ?? airfoilData[0]
+  analysers.find(a => a.profileName === state.value.selectedAirfoil) ?? analysers[0]
 )
 
 function setSelectedAirfoil(profileName) {
@@ -74,14 +75,14 @@ function setSelectedAirfoil(profileName) {
 
 provide(AIRFOIL_KEY, { airfoilList, selectedAirfoilData, setSelectedAirfoil })
 
-// — Target CL —
-// Convert state to SI before calling computeCruiseCL (which expects SI units)
+// — Target CL and Cruise AoA —
+// Convert state to SI before calling getCruiseConditions (which expects SI units)
 const targetCl = computed(() => {
   const s = state.value
   const wl  = s.units === 'Imperial' ? convertWingLoading(s.wingLoading,  'Imperial', 'SI') : s.wingLoading
   const spd = s.units === 'Imperial' ? convertSpeed(s.cruisingSpeed,      'Imperial', 'SI') : s.cruisingSpeed
   const alt = s.units === 'Imperial' ? convertDistance(s.siteAltitude,    'Imperial', 'SI') : s.siteAltitude
-  return computeCruiseCL(wl, spd, alt)
+  return AirfoilAnalyser.convertSpeedToCl(wl, spd, alt)
 })
 
 // — URL sync —
@@ -98,7 +99,7 @@ onMounted(() => {
     const cruisingSpeed = Number(params.get('speed')       ?? 0) || 0
     const airfoilParam  = params.get('airfoil')
     const selectedAirfoil =
-      airfoilData.find(a => a.profileName === airfoilParam)?.profileName ?? airfoilData[0].profileName
+      analysers.find(a => a.profileName === airfoilParam)?.profileName ?? analysers[0].profileName
     const tabParam = params.get('tab')
     if (VALID_TABS.includes(tabParam)) activeTab.value = tabParam
 
@@ -120,7 +121,7 @@ watch([state, activeTab], ([s, tab]) => {
     if (s.siteAltitude)  params.set('altitude',    s.siteAltitude)
     if (s.wingLoading)   params.set('wingLoading',  s.wingLoading)
     if (s.cruisingSpeed) params.set('speed',        s.cruisingSpeed)
-    if (s.selectedAirfoil !== airfoilData[0].profileName)
+    if (s.selectedAirfoil !== analysers[0].profileName)
       params.set('airfoil', s.selectedAirfoil)
     if (tab !== VALID_TABS[0]) params.set('tab', tab)
     if (s.comparisonX !== 'cruiseAoa') params.set('cmpX', s.comparisonX)

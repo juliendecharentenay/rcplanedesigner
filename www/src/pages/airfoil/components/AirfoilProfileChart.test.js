@@ -4,6 +4,13 @@ import AirfoilProfileChart from './AirfoilProfileChart.vue'
 
 const MOCK_AIRFOIL = {
   profileName: 'E168 (12.45%)',
+  zeroLiftAoA: -2,
+  stallAoa: 13,
+  stallCl: 1.2,
+  stallCd: 0.04,
+  stallCm: -0.08,
+  landingAoa: 10,
+  landingCl: 0.83,
   coord: {
     x: [1.0, 0.5, 0.0, 0.5, 1.0],
     y: [0.0, 0.05, 0.0, -0.05, 0.0],
@@ -52,5 +59,13 @@ describe('AirfoilProfileChart', () => {
     })
     mountChart()
     expect(observe).toHaveBeenCalledOnce()
+  })
+
+  it('accepts targetCl prop without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, targetCl: 4.5 })).not.toThrow()
+  })
+
+  it('accepts null targetCl without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, targetCl: null })).not.toThrow()
   })
 })

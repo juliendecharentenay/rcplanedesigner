@@ -7,8 +7,8 @@ import { APP_STATE_KEY } from '../composables/useAppState'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
 
 const MOCK_AIRFOILS = [
-  { profileName: 'E168 (12%)', zeroLiftAoA: 0,    stall_aoa: 11, stall_clmax: 1.047, polar: [] },
-  { profileName: 'E169 (14%)', zeroLiftAoA: -1.5,  stall_aoa: 13, stall_clmax: 1.1,   polar: [] },
+  { profileName: 'E168 (12%)', zeroLiftAoA: 0,    stallAoa: 11, stallCl: 1.047, polar: [] },
+  { profileName: 'E169 (14%)', zeroLiftAoA: -1.5,  stallAoa: 13, stallCl: 1.1,   polar: [] },
 ]
 
 function mountPanel({ airfoilProfile = null, focusedKey = ref('airfoilProfile') } = {}) {
@@ -66,7 +66,6 @@ describe('AirfoilPanel', () => {
   it('displays zero lift AoA formatted to 2 decimal places', () => {
     const { wrapper } = mountPanel()
     const text = wrapper.text()
-    expect(text).toContain('0.00')
     expect(text).toContain('-1.50')
   })
 

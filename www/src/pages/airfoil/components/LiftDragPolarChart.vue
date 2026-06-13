@@ -1,13 +1,11 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
-import { interpolateAoA } from '@/js/interpolateAoA.js'
-import { interpolateAtAoA } from '@/js/interpolateAtAoA.js'
 
 const props = defineProps({
-  airfoil:  { type: Object, default: null },
-  targetCl: { default: null },
-  yDomain:  { type: Array,  required: true }, // [yMin, yMax] shared with LiftCurveChart
+  airfoil:   { type: Object, default: null },
+  targetCl:  { default: null },
+  yDomain:   { type: Array,  required: true }, // [yMin, yMax] shared with LiftCurveChart
 })
 
 const containerEl = ref(null)
@@ -123,9 +121,9 @@ function draw() {
         .attr('stroke', '#cbd5e1').attr('stroke-width', 1)
         .attr('stroke-dasharray', '5,3')
 
-      // Find operating point: Calculate AoA > Calculate Cd
-      let opAoA = interpolateAoA(polar, props.targetCl)
-      let opCD = interpolateAtAoA(polar, opAoA)?.cd;
+      // Find operating point using pre-computed targetCl
+      const opAoA = props.airfoil.getCruiseConditions(props.targetCl).cruiseAoa
+      const opCD = opAoA != null ? props.airfoil.atAoA(opAoA)?.cd : null
       if (opCD != null) {
         g.append('circle')
           .attr('cx', xScale(opCD))

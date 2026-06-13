@@ -1,14 +1,9 @@
 <script setup>
 import { computed, inject } from 'vue'
-import airfoilData from '@/assets/airfoils.json'
-import { interpolateAoA } from '@/js/interpolateAoA'
-import { computeCruiseDeltaAoA } from '@/js/cruiseDeltaAoA'
-import { interpolateAtAoA } from '@/js/interpolateAtAoA'
-import { getStallParameters, getLandingParameters } from '@/js/stallParameters'
-import { computeCruiseSpeed, computeStallSpeed, computeLandingSpeed } from '@/js/speedParameters'
 import { convertWingLoading, convertDistance, convertSpeed } from '@/units/units'
 import { useUnits } from '@/pages/index/composables/useUnits'
 import { useAirfoil } from '../composables/useAirfoil'
+import { useAirfoils } from '@/pages/index/composables/useAirfoils'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
 import BaseSelect from '@/components/BaseSelect.vue'
 import ComparisonChart from './ComparisonChart.vue'
@@ -18,6 +13,7 @@ const props = defineProps({
 })
 
 const { selectedAirfoilData, setSelectedAirfoil } = useAirfoil()
+const { airfoils: analysers } = useAirfoils()
 const { getState, setState } = inject(APP_STATE_KEY)
 const { speedUnit } = useUnits()
 
@@ -71,6 +67,9 @@ const chartData = computed(() => {
   const wingLoadingSI = s.units === 'Imperial'
     ? convertWingLoading(s.wingLoading, 'Imperial', 'SI')
     : s.wingLoading
+  const cruisingSpdSI = s.units === 'Imperial'
+    ? convertSpeed(s.cruisingSpeed, 'Imperial', 'SI')
+    : s.cruisingSpeed
   const altitudeSI = s.units === 'Imperial'
     ? convertDistance(s.siteAltitude, 'Imperial', 'SI')
     : s.siteAltitude
@@ -79,34 +78,35 @@ const chartData = computed(() => {
     return s.units === 'Imperial' ? convertSpeed(v, 'SI', 'Imperial') : v
   }
 
-  return airfoilData.map(a => {
-    const cruiseAoa = props.targetCl != null ? interpolateAoA(a.polar, props.targetCl) : null
-    const cruiseAt  = cruiseAoa != null ? interpolateAtAoA(a.polar, cruiseAoa) : null
-    const stall     = getStallParameters(a)
-    const landing   = getLandingParameters(a)
+  return analysers.map(analyser => {
+    const cruise = 
+      analyser.getCruiseConditions(props.targetCl)
+
     const vals = {
-      cruiseCl:     props.targetCl,
-      cruiseAoa,
-      cruiseCd:     cruiseAt?.cd ?? null,
-      cruiseCm:       cruiseAt?.cm ?? null,
-      cruiseDeltaAoA: computeCruiseDeltaAoA(a.polar, a.zeroLiftAoA, props.targetCl),
-      stallAoa:     stall?.stallAoa   ?? null,
-      stallCl:      stall?.stallCl    ?? null,
-      stallCd:      stall?.stallCd    ?? null,
-      stallCm:      stall?.stallCm    ?? null,
-      landingAoa:   landing?.landingAoa ?? null,
-      landingCl:    landing?.landingCl  ?? null,
-      landingCd:    landing?.landingCd  ?? null,
-      landingCm:    landing?.landingCm  ?? null,
-      cruiseSpeed:  toDisplaySpeed(computeCruiseSpeed(wingLoadingSI, props.targetCl, altitudeSI)),
-      stallSpeed:   toDisplaySpeed(computeStallSpeed(wingLoadingSI, stall?.stallCl ?? null, altitudeSI)),
-      landingSpeed: toDisplaySpeed(computeLandingSpeed(wingLoadingSI, stall?.stallCl ?? null, altitudeSI)),
+      cruiseCl:       cruise.cruiseCl,
+      cruiseAoa:      cruise.cruiseAoa,
+      cruiseCd:       cruise.cruiseCd,
+      cruiseCm:       cruise.cruiseCm,
+      cruiseDeltaAoA: cruise.cruiseAoa != null
+        ? cruise.cruiseAoa - analyser.zeroLiftAoA
+        : null,
+      stallAoa:     analyser.stallAoa,
+      stallCl:      analyser.stallCl,
+      stallCd:      analyser.stallCd,
+      stallCm:      analyser.stallCm,
+      landingAoa:   analyser.landingAoa,
+      landingCl:    analyser.landingCl,
+      landingCd:    analyser.landingCd,
+      landingCm:    analyser.landingCm,
+      cruiseSpeed:  toDisplaySpeed(analyser.getCruiseSpeed(wingLoadingSI, cruise.cruiseCl, altitudeSI)),
+      stallSpeed:   toDisplaySpeed(analyser.getStallSpeed(wingLoadingSI, altitudeSI)),
+      landingSpeed: toDisplaySpeed(analyser.getLandingSpeed(wingLoadingSI, altitudeSI)),
     }
     return {
-      profileName: a.profileName,
+      profileName: analyser.profileName,
       x: vals[xMetric.value],
       y: vals[yMetric.value],
-      isSelected: a.profileName === selectedAirfoilData.value.profileName,
+      isSelected: analyser.profileName === selectedAirfoilData.value.profileName,
     }
   }).filter(d => d.x != null && d.y != null)
 })

@@ -1,12 +1,11 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
-import { interpolateAoA } from '@/js/interpolateAoA.js'
 
 const props = defineProps({
-  airfoil:  { type: Object, default: null },
-  targetCl: { default: null },
-  yDomain:  { type: Array,  required: true }, // [yMin, yMax] pre-computed by parent
+  airfoil:   { type: Object, default: null },
+  targetCl:  { default: null },
+  yDomain:   { type: Array,  required: true }, // [yMin, yMax] pre-computed by parent
 })
 
 const containerEl = ref(null)
@@ -129,8 +128,7 @@ function draw() {
         .attr('stroke', '#cbd5e1').attr('stroke-width', 1)
         .attr('stroke-dasharray', '5,3')
 
-      // Find the lowest AoA where CL first reaches targetCl (linear interpolation)
-      let crossAoa = interpolateAoA(polar, props.targetCl);
+      const crossAoa = props.airfoil.getCruiseCondition(props.targetCl).cruiseAoa
       if (crossAoa != null) {
         g.append('line')
           .attr('x1', xScale(crossAoa)).attr('x2', xScale(crossAoa))

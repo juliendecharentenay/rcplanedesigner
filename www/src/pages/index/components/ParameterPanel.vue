@@ -5,8 +5,7 @@ import { useUnits } from '../composables/useUnits'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
 import { AIRFOILS_KEY } from '../composables/useAirfoils'
 import { UNIT_SYSTEMS } from '@/units/units'
-import { computeCruiseCL } from '@/js/liftCoefficient'
-import { interpolateAoA } from '@/js/interpolateAoA'
+import { AirfoilAnalyser } from '@/js/AirfoilAnalyser.js'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import BaseAnchor from '@/components/BaseAnchor.vue'
@@ -63,26 +62,27 @@ register('cruiseCL', {
   body: 'The lift coefficient the wing must produce at cruise. Derived from wing loading, cruising speed, and air density at site altitude. A value near 0.1–0.2 is typical for fast models; 0.4–0.8 for slow or heavily loaded ones.',
 })
 
-const cruiseCL = computed(() => {
+const cruiseConditions = computed(() => {
+  if (!selectedAirfoil.value) return { cruiseCl: null, cruiseAoa: null }
   const { wingLoading, cruisingSpeed: speed, siteAltitude } = getState()
   const wl_SI    = convertWingLoading(wingLoading, system.value, 'SI')
   const speed_SI = convertSpeed(speed, system.value, 'SI')
   const alt_SI   = convertDistance(siteAltitude, system.value, 'SI')
-  const cl = computeCruiseCL(wl_SI, speed_SI, alt_SI)
-  return cl !== null ? cl.toFixed(3) : '—'
+  const cl = AirfoilAnalyser.convertSpeedToCl(wl_SI, speed_SI, alt_SI)
+  return selectedAirfoil.value.getCruiseConditions(cl)
 })
 
-const cruiseAoA = computed(() => {
-  if (!selectedAirfoil.value) return null
-  const { wingLoading, cruisingSpeed: speed, siteAltitude } = getState()
-  const wl_SI    = convertWingLoading(wingLoading, system.value, 'SI')
-  const speed_SI = convertSpeed(speed, system.value, 'SI')
-  const alt_SI   = convertDistance(siteAltitude, system.value, 'SI')
-  const cl = computeCruiseCL(wl_SI, speed_SI, alt_SI)
-  if (cl === null) return null
-  const aoa = interpolateAoA(selectedAirfoil.value.polar, cl)
-  return aoa !== null ? aoa.toFixed(1) : null
-})
+const cruiseCL = computed(() =>
+  cruiseConditions.value.cruiseCl != null
+    ? cruiseConditions.value.cruiseCl.toFixed(3)
+    : '—'
+)
+
+const cruiseAoA = computed(() =>
+  cruiseConditions.value.cruiseAoa != null
+    ? cruiseConditions.value.cruiseAoa.toFixed(1)
+    : null
+)
 
 const planeType = computed({
   get: () => getState().planeType,

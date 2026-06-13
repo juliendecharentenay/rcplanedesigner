@@ -1,11 +1,9 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
-import { interpolateAoA } from '@/js/interpolateAoA'
-import { getStallParameters, getLandingParameters } from '@/js/stallParameters'
 
 const props = defineProps({
-  airfoil:  { type: Object, default: null },
+  airfoil:   { type: Object, default: null },
   targetCl: { default: null },
 })
 
@@ -39,20 +37,17 @@ watch(
 
 function aoaAnnotations() {
   const a = props.airfoil
-  const zeroLiftAoA = a.zeroLiftAoA ?? 0
-  const stall   = getStallParameters(a)
-  const landing = getLandingParameters(a)
-  const cruiseAoa = props.targetCl != null ? interpolateAoA(a.polar, props.targetCl) : null
+  const cruiseAoa = a.getCruiseConditions(props.targetCl).cruiseAoa
 
   return [
-    { aoa: zeroLiftAoA,       label: `ZL ${zeroLiftAoA.toFixed(1)}°`,          color: '#64748b' },
+    { aoa: a.zeroLiftAoA, label: `ZL ${a.zeroLiftAoA.toFixed(1)}°`, color: '#64748b' },
     ...(cruiseAoa != null
-      ? [{ aoa: cruiseAoa,    label: `Cruise ${cruiseAoa.toFixed(1)}°`,         color: '#3b82f6' }]
+      ? [{ aoa: cruiseAoa, label: `Cruise ${cruiseAoa.toFixed(1)}°`, color: '#3b82f6' }]
       : []),
-    ...(landing != null
-      ? [{ aoa: landing.landingAoa, label: `Land. ${landing.landingAoa.toFixed(1)}°`, color: '#16a34a' }]
+    ...(a.landingAoa != null
+      ? [{ aoa: a.landingAoa, label: `Land. ${a.landingAoa.toFixed(1)}°`, color: '#16a34a' }]
       : []),
-    { aoa: stall.stallAoa,    label: `Stall ${stall.stallAoa.toFixed(1)}°`,     color: '#dc2626' },
+    { aoa: a.stallAoa, label: `Stall ${a.stallAoa.toFixed(1)}°`, color: '#dc2626' },
   ]
 }
 

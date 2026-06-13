@@ -4,12 +4,15 @@ import LiftDragPolarChart from './LiftDragPolarChart.vue'
 
 const MOCK_AIRFOIL = {
   profileName: 'E168 (12%)',
+  stallAoa: 13,
+  stallCl: 1.2,
   polar: [
     { aoa: -5, cl: -0.2, cd: 0.012, cm: -0.02 },
     { aoa:  0, cl:  0.3, cd: 0.008, cm: -0.02 },
     { aoa:  5, cl:  0.8, cd: 0.012, cm: -0.025 },
     { aoa: 10, cl:  1.2, cd: 0.020, cm: -0.030 },
   ],
+  atAoA: vi.fn(() => ({ cd: 0.012, cm: -0.02 })),
 }
 
 const DEFAULT_Y_DOMAIN = [-1, 2]
@@ -58,5 +61,13 @@ describe('LiftDragPolarChart', () => {
     })
     mountChart()
     expect(observe).toHaveBeenCalledOnce()
+  })
+
+  it('accepts targetCl prop without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, targetCl: 0.2 })).not.toThrow()
+  })
+
+  it('accepts null targetCl without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, targetCl: null })).not.toThrow()
   })
 })

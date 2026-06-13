@@ -7,8 +7,22 @@ import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
 import { AIRFOILS_KEY } from '../composables/useAirfoils'
 
 const MOCK_AIRFOILS = [
-  { profileName: 'E168 (12%)', zeroLiftAoA: 0, stall_aoa: 11, stall_clmax: 1.047, polar: [] },
-  { profileName: 'E169 (14%)', zeroLiftAoA: 0, stall_aoa: 13, stall_clmax: 1.1,   polar: [] },
+  {
+    profileName: 'E168 (12%)',
+    zeroLiftAoA: 0,
+    stallAoa: 11,
+    stallCl: 1.047,
+    polar: [],
+    getCruiseConditions: () => ({ cruiseCl: null, cruiseAoa: null, cruiseCd: null, cruiseCm: null }),
+  },
+  {
+    profileName: 'E169 (14%)',
+    zeroLiftAoA: 0,
+    stallAoa: 13,
+    stallCl: 1.1,
+    polar: [],
+    getCruiseConditions: () => ({ cruiseCl: null, cruiseAoa: null, cruiseCd: null, cruiseCm: null }),
+  },
 ]
 
 function makeFocusedParamProvide() {

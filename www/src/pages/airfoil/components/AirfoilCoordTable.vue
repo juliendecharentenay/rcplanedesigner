@@ -1,14 +1,18 @@
 <script setup>
-import { computed } from 'vue'
+import { inject, computed } from 'vue'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
+const setError = inject(SET_ERROR_KEY);
 
 const props = defineProps({
   airfoil: { type: Object, default: null },
 })
 
 const coords = computed(() => {
-  if (!props.airfoil) return []
-  const { x, y } = props.airfoil.coord
-  return x.map((xi, i) => ({ x: xi, y: y[i] }))
+  try {
+    if (!props.airfoil) return []
+    const { x, y } = props.airfoil.coord
+    return x.map((xi, i) => ({ x: xi, y: y[i] }))
+  } catch (e) { setError(e) }
 })
 </script>
 

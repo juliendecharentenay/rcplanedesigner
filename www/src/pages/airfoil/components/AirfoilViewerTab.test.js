@@ -16,7 +16,7 @@ const STUBS = {
   AirfoilProfileChart: {
     name: 'AirfoilProfileChart',
     template: '<div class="stub-profile-chart" />',
-    props: ['airfoil'],
+    props: ['airfoil', 'targetCl'],
   },
   AirfoilCoordTable: {
     name: 'AirfoilCoordTable',
@@ -35,8 +35,9 @@ function makeProvide(airfoil = null) {
   }
 }
 
-function mountTab(airfoil = null) {
+function mountTab(airfoil = null, props = {}) {
   return mount(AirfoilViewerTab, {
+    props,
     global: {
       provide: makeProvide(airfoil),
       stubs: STUBS,
@@ -80,5 +81,17 @@ describe('AirfoilViewerTab', () => {
     const wrapper = mountTab(MOCK_AIRFOIL)
     const table = wrapper.findComponent({ name: 'AirfoilCoordTable' })
     expect(table.props('airfoil')).toEqual(MOCK_AIRFOIL)
+  })
+
+  it('passes targetCl prop to AirfoilProfileChart', () => {
+    const wrapper = mountTab(MOCK_AIRFOIL, { targetCl: 0.2 })
+    const chart = wrapper.findComponent({ name: 'AirfoilProfileChart' })
+    expect(chart.props('targetCl')).toBe(0.2)
+  })
+
+  it('passes null targetCl to AirfoilProfileChart when not provided', () => {
+    const wrapper = mountTab(MOCK_AIRFOIL)
+    const chart = wrapper.findComponent({ name: 'AirfoilProfileChart' })
+    expect(chart.props('targetCl')).toBeNull()
   })
 })

@@ -59,4 +59,12 @@ describe('LiftCurveChart', () => {
     mountChart()
     expect(observe).toHaveBeenCalledOnce()
   })
+
+  it('accepts cruiseAoa prop without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, cruiseAoa: 3.2 })).not.toThrow()
+  })
+
+  it('accepts null cruiseAoa without error', () => {
+    expect(() => mountChart({ airfoil: MOCK_AIRFOIL, cruiseAoa: null })).not.toThrow()
+  })
 })

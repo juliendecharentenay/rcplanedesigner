@@ -10,6 +10,66 @@ const STUBS = {
   ComparisonChart: { name: 'ComparisonChart', template: '<div class="stub-comparison-chart" />', props: ['data', 'xLabel', 'yLabel'] },
 }
 
+// Stub useAirfoils to return analyser-shaped mock objects (avoids loading the full JSON / constructing real analysers)
+vi.mock('@/pages/index/composables/useAirfoils', () => {
+  const mockAnalysers = [
+    {
+      profileName: 'E168 (12%)',
+      zeroLiftAoA: -2,
+      stallAoa: 13,
+      stallCl: 1.2,
+      stallCd: 0.04,
+      stallCm: -0.07,
+      landingAoa: 10,
+      landingCl: 0.83,
+      landingCd: 0.03,
+      landingCm: -0.06,
+      polar: [
+        { aoa: -5, cl: -0.2, cd: 0.012, cm: -0.02 },
+        { aoa:  0, cl:  0.3, cd: 0.008, cm: -0.02 },
+        { aoa:  5, cl:  0.8, cd: 0.012, cm: -0.025 },
+        { aoa: 10, cl:  1.2, cd: 0.020, cm: -0.030 },
+      ],
+      getCruiseConditions: vi.fn(() => ({
+        cruiseCl: 0.8, cruiseAoa: 5.0, cruiseCd: 0.012, cruiseCm: -0.025,
+      })),
+      atAoA: vi.fn(() => ({ cd: 0.012, cm: -0.025 })),
+      getCruiseSpeed: vi.fn(() => 15.0),
+      getStallSpeed: vi.fn(() => 10.0),
+      getLandingSpeed: vi.fn(() => 12.0),
+    },
+    {
+      profileName: 'E169 (14%)',
+      zeroLiftAoA: -3,
+      stallAoa: 14,
+      stallCl: 1.3,
+      stallCd: 0.05,
+      stallCm: -0.08,
+      landingAoa: 11,
+      landingCl: 0.90,
+      landingCd: 0.035,
+      landingCm: -0.065,
+      polar: [
+        { aoa: -5, cl: -0.3, cd: 0.013, cm: -0.025 },
+        { aoa:  0, cl:  0.4, cd: 0.009, cm: -0.025 },
+        { aoa:  5, cl:  0.9, cd: 0.013, cm: -0.030 },
+        { aoa: 10, cl:  1.3, cd: 0.022, cm: -0.035 },
+      ],
+      getCruiseConditions: vi.fn(() => ({
+        cruiseCl: 0.9, cruiseAoa: 5.5, cruiseCd: 0.013, cruiseCm: -0.030,
+      })),
+      atAoA: vi.fn(() => ({ cd: 0.013, cm: -0.030 })),
+      getCruiseSpeed: vi.fn(() => 16.0),
+      getStallSpeed: vi.fn(() => 11.0),
+      getLandingSpeed: vi.fn(() => 13.0),
+    },
+  ]
+  return {
+    useAirfoils: () => ({ airfoils: mockAnalysers }),
+    AIRFOILS_KEY: Symbol('airfoils'),
+  }
+})
+
 function makeAirfoilProvide(profileName = 'E168 (12%)') {
   return {
     [AIRFOIL_KEY]: {
@@ -21,7 +81,7 @@ function makeAirfoilProvide(profileName = 'E168 (12%)') {
 }
 
 function makeAppStateProvide(overrides = {}) {
-  const state = ref({ comparisonX: 'cruiseAoa', comparisonY: 'cruiseCl', ...overrides })
+  const state = ref({ comparisonX: 'cruiseAoa', comparisonY: 'cruiseCl', units: 'SI', wingLoading: 0, siteAltitude: 0, cruisingSpeed: 0, ...overrides })
   return {
     [APP_STATE_KEY]: {
       getState: () => state.value,
