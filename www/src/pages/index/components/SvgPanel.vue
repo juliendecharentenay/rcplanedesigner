@@ -1,17 +1,7 @@
 <template>
   <main class="relative flex-1 flex items-center justify-center overflow-hidden bg-slate-50">
-    <!-- subtle dot grid -->
-    <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="dot-grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="0.75" fill="#cbd5e1" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#dot-grid)" />
-    </svg>
-
     <!-- canvas -->
-    <div class="relative w-4/5 aspect-[4/3] bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden fill-none stroke-current">
+    <div class="relative w-full h-full bg-white shadow-md border border-slate-200 overflow-hidden fill-none stroke-current">
       <TrainerSideView class="w-full h-full" />
       <!--
       <svg

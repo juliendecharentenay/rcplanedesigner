@@ -62,12 +62,6 @@ describe('ParameterPanel', () => {
     expect(mountPanel().text()).toContain('Parameters')
   })
 
-  it('is absolutely positioned with z-index class for SVG overlay', () => {
-    const aside = mountPanel().find('aside')
-    expect(aside.classes()).toContain('absolute')
-    expect(aside.classes()).toContain('z-10')
-  })
-
   it('registers contextual content for all three parameters on mount', () => {
     const provide = makeProvide()
     mount(ParameterPanel, { global: { provide } })

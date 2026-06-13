@@ -139,7 +139,7 @@ function onPanelFocusOut(e) {
 
 <template>
   <aside
-    class="absolute left-0 top-0 bottom-0 z-10 flex flex-col min-w-48 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl"
+    class="flex flex-col min-w-48 max-w-96 bg-white/90 backdrop-blur-sm border-r border-slate-200 shadow-xl"
     @focusout="onPanelFocusOut"
   >
     <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100">

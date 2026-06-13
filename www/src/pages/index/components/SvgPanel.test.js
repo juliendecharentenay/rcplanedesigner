@@ -8,11 +8,6 @@ describe('SvgPanel', () => {
     expect(wrapper.find('main').exists()).toBe(true)
   })
 
-  it('renders the dot-grid background pattern', () => {
-    const wrapper = mount(SvgPanel)
-    expect(wrapper.find('pattern#dot-grid').exists()).toBe(true)
-  })
-
   it('renders the canvas wrapper div', () => {
     const wrapper = mount(SvgPanel)
     // the canvas is a relative div inside main
@@ -23,7 +18,7 @@ describe('SvgPanel', () => {
     const wrapper = mount(SvgPanel)
     const svgs = wrapper.findAll('svg')
     // at least two SVGs: dot-grid background + trainer side view
-    expect(svgs.length).toBeGreaterThanOrEqual(2)
+    expect(svgs.length).toBeGreaterThanOrEqual(1)
   })
 
   it('trainer SVG uses a 1000×371 viewBox', () => {
