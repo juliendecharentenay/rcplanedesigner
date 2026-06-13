@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PolarChart from './PolarChart.vue'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const MOCK_AIRFOIL = {
   profileName: 'E168 (12%)',
@@ -18,10 +19,13 @@ const CHART_STUBS = {
   LiftCurveChart:     { name: 'LiftCurveChart',     template: '<div class="stub-lift" />',  props: ['airfoil', 'targetCl', 'yDomain'] },
 }
 
-function mountChart(props = {}) {
+function mountChart(props = {}, setError = vi.fn()) {
   return mount(PolarChart, {
     props,
-    global: { stubs: CHART_STUBS },
+    global: {
+      stubs: CHART_STUBS,
+      provide: { [SET_ERROR_KEY]: setError },
+    },
   })
 }
 
@@ -66,5 +70,23 @@ describe('PolarChart', () => {
     // No child charts rendered, but the prop default is observable by checking
     // that mounting with null airfoil does not throw and shows the prompt
     expect(() => mountChart({ airfoil: null })).not.toThrow()
+  })
+
+  it('calls setError and returns [-1, 2] fallback when sharedYDomain throws', () => {
+    const setError = vi.fn()
+    // Non-enumerable getter: Vue test-utils deep traversal uses Object.keys()
+    // so it skips non-enumerable props; the computed still triggers it via props.airfoil.polar.
+    const badAirfoil = { profileName: 'Bad' }
+    Object.defineProperty(badAirfoil, 'polar', {
+      get() { throw new Error('polar access failed') },
+      enumerable: false,
+    })
+    expect(() => mountChart({ airfoil: badAirfoil }, setError)).not.toThrow()
+    expect(setError).toHaveBeenCalledOnce()
+    expect(setError.mock.calls[0][0]).toBeInstanceOf(Error)
+    // The child charts should receive the [-1, 2] fallback domain
+    const wrapper = mountChart({ airfoil: badAirfoil }, vi.fn())
+    const polar = wrapper.findComponent({ name: 'LiftDragPolarChart' })
+    expect(polar.props('yDomain')).toEqual([-1, 2])
   })
 })

@@ -1,12 +1,15 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
 import * as d3 from 'd3'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const props = defineProps({
   airfoil:   { type: Object, default: null },
   targetCl:  { default: null },
   yDomain:   { type: Array,  required: true }, // [yMin, yMax] shared with LiftCurveChart
 })
+
+const setError = inject(SET_ERROR_KEY)
 
 const containerEl = ref(null)
 const svgEl       = ref(null)
@@ -38,6 +41,7 @@ watch(
 )
 
 function draw() {
+  try {
   const polar  = props.airfoil.polar
   const width  = containerW.value
   const height = Math.max(containerH.value, 260)
@@ -135,6 +139,7 @@ function draw() {
       }
     }
   }
+  } catch (e) { setError(e); return }
 }
 </script>
 

@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import ComparisonTab from './ComparisonTab.vue'
 import { AIRFOIL_KEY } from '../composables/useAirfoil'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 // Stub ComparisonChart to isolate ComparisonTab logic from D3/ResizeObserver
 const STUBS = {
@@ -90,13 +91,14 @@ function makeAppStateProvide(overrides = {}) {
   }
 }
 
-function mountTab(props = {}, stateOverrides = {}) {
+function mountTab(props = {}, stateOverrides = {}, setError = vi.fn()) {
   return mount(ComparisonTab, {
     props,
     global: {
       provide: {
         ...makeAirfoilProvide(),
         ...makeAppStateProvide(stateOverrides),
+        [SET_ERROR_KEY]: setError,
       },
       stubs: STUBS,
     },
@@ -230,5 +232,20 @@ describe('ComparisonTab', () => {
     )
     const chart = wrapper.findComponent({ name: 'ComparisonChart' })
     expect(chart.props('xLabel')).toContain('m/s')
+  })
+
+  it('calls setError and returns [] when chartData throws', async () => {
+    const setError = vi.fn()
+    // Import the mocked module to access mock functions
+    const { useAirfoils } = await import('@/pages/index/composables/useAirfoils')
+    const { airfoils } = useAirfoils()
+    // Make getCruiseConditions throw on next call
+    airfoils[0].getCruiseConditions.mockImplementationOnce(() => {
+      throw new Error('cruise conditions failed')
+    })
+    const wrapper = mountTab({ targetCl: 0.8 }, {}, setError)
+    expect(wrapper.find('.stub-comparison-chart').exists()).toBe(false)
+    expect(setError).toHaveBeenCalledOnce()
+    expect(setError.mock.calls[0][0]).toBeInstanceOf(Error)
   })
 })

@@ -5,25 +5,27 @@ import AirfoilPanel from './AirfoilPanel.vue'
 import { AIRFOILS_KEY } from '../composables/useAirfoils'
 import { APP_STATE_KEY } from '../composables/useAppState'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const MOCK_AIRFOILS = [
   { profileName: 'E168 (12%)', zeroLiftAoA: 0,    stallAoa: 11, stallCl: 1.047, polar: [] },
   { profileName: 'E169 (14%)', zeroLiftAoA: -1.5,  stallAoa: 13, stallCl: 1.1,   polar: [] },
 ]
 
-function mountPanel({ airfoilProfile = null, focusedKey = ref('airfoilProfile') } = {}) {
+function mountPanel({ airfoilProfile = null, focusedKey = ref('airfoilProfile'), airfoils = MOCK_AIRFOILS, setError = vi.fn() } = {}) {
   const state = ref({ airfoilProfile })
   const setState = vi.fn((partial) => { state.value = { ...state.value, ...partial } })
   const wrapper = mount(AirfoilPanel, {
     global: {
       provide: {
-        [AIRFOILS_KEY]: { airfoils: MOCK_AIRFOILS },
+        [AIRFOILS_KEY]: { airfoils },
         [APP_STATE_KEY]: { getState: () => state.value, setState },
         [FOCUSED_PARAM_KEY]: { focusedKey },
+        [SET_ERROR_KEY]: setError,
       },
     },
   })
-  return { wrapper, setState }
+  return { wrapper, setState, setError }
 }
 
 describe('AirfoilPanel', () => {
@@ -111,5 +113,10 @@ describe('AirfoilPanel', () => {
     wrapper.findAll('tbody tr').forEach((row) => {
       expect(row.classes()).toContain('cursor-pointer')
     })
+  })
+
+  it('renders an empty table body when airfoils is not an array', () => {
+    const { wrapper } = mountPanel({ airfoils: null })
+    expect(wrapper.findAll('tbody tr')).toHaveLength(0)
   })
 })

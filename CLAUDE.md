@@ -66,6 +66,37 @@ Modal dialog displayed when `error` is non-null. Renders via `<Teleport to="body
 - Props: `error` (`Error | null`, validated) — the active error to display.
 - Emits: `dismiss` — fired when the user clicks Dismiss; parent should call `clearError()`.
 
+## Error handling in components
+
+Every component that contains fallible logic (computed properties that access object methods or arrays, `draw()` functions that call D3, lifecycle hooks that touch the DOM) must:
+
+1. Inject `setError` at the top of `<script setup>`:
+   ```js
+   import { inject } from 'vue'
+   import { SET_ERROR_KEY } from '@/composables/useError.js'
+   const setError = inject(SET_ERROR_KEY)
+   ```
+
+2. Wrap computed property bodies in try/catch and return a typed safe fallback:
+   ```js
+   const myData = computed(() => {
+     try {
+       // ... fallible logic ...
+     } catch (e) { setError(e); return [] }  // [] / null / [-1, 2] as appropriate
+   })
+   ```
+
+3. Wrap `myMethod()` function bodies in try/catch with early return:
+   ```js
+   function myMethod() {
+     try {
+       // ... Function logic ...
+     } catch (e) { setError(e); return }
+   }
+
+
+**Reference implementation:** `www/src/pages/airfoil/components/AirfoilCoordTable.vue`
+
 ## Application state
 
 Application state lives in `src/pages/index/composables/useAppState.js`.

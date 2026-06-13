@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import AirfoilProfileChart from './AirfoilProfileChart.vue'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const MOCK_AIRFOIL = {
   profileName: 'E168 (12.45%)',
@@ -29,8 +30,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mountChart(props = {}) {
-  return mount(AirfoilProfileChart, { props })
+function mountChart(props = {}, setError = vi.fn()) {
+  return mount(AirfoilProfileChart, {
+    props,
+    global: { provide: { [SET_ERROR_KEY]: setError } },
+  })
 }
 
 describe('AirfoilProfileChart', () => {
@@ -67,5 +71,30 @@ describe('AirfoilProfileChart', () => {
 
   it('accepts null targetCl without error', () => {
     expect(() => mountChart({ airfoil: MOCK_AIRFOIL, targetCl: null })).not.toThrow()
+  })
+
+  it('calls setError and does not crash when draw() throws', async () => {
+    const setError = vi.fn()
+    // ResizeObserver that fires immediately with a non-zero size so draw() runs
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb) { this._cb = cb }
+      observe() {
+        this._cb([{ contentRect: { width: 400, height: 300 } }])
+      }
+      disconnect() {}
+    })
+    const badAirfoil = {
+      profileName: 'Bad',
+      zeroLiftAoA: -2,
+      stallAoa: 13,
+      landingAoa: 10,
+      coord: { x: [0, 1], y: [0, 0] },
+      getCruiseConditions: () => { throw new Error('draw failed') },
+    }
+    const wrapper = mountChart({ airfoil: badAirfoil }, setError)
+    await flushPromises()
+    expect(wrapper.exists()).toBe(true)
+    expect(setError).toHaveBeenCalledOnce()
+    expect(setError.mock.calls[0][0]).toBeInstanceOf(Error)
   })
 })

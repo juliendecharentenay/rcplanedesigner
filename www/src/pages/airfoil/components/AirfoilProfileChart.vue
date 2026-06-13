@@ -1,6 +1,9 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
 import * as d3 from 'd3'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
+
+const setError = inject(SET_ERROR_KEY)
 
 const props = defineProps({
   airfoil:   { type: Object, default: null },
@@ -52,6 +55,7 @@ function aoaAnnotations() {
 }
 
 function draw() {
+  try {
   const { x, y } = props.airfoil.coord
   const points = x.map((xi, i) => [xi, y[i]])
 
@@ -190,6 +194,7 @@ function draw() {
     .attr('fill', 'none')
     .attr('stroke', '#1e293b')
     .attr('stroke-width', 1)
+  } catch (e) { setError(e); return }
 }
 </script>
 

@@ -5,6 +5,7 @@ import { useUnits } from '@/pages/index/composables/useUnits'
 import { useAirfoil } from '../composables/useAirfoil'
 import { useAirfoils } from '@/pages/index/composables/useAirfoils'
 import { APP_STATE_KEY } from '@/pages/index/composables/useAppState'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 import BaseSelect from '@/components/BaseSelect.vue'
 import ComparisonChart from './ComparisonChart.vue'
 
@@ -12,6 +13,7 @@ const props = defineProps({
   targetCl: { default: null },
 })
 
+const setError = inject(SET_ERROR_KEY)
 const { selectedAirfoilData, setSelectedAirfoil } = useAirfoil()
 const { airfoils: analysers } = useAirfoils()
 const { getState, setState } = inject(APP_STATE_KEY)
@@ -60,6 +62,7 @@ const xAxisLabel = computed(() => getAxisLabel(xMetric.value))
 const yAxisLabel = computed(() => getAxisLabel(yMetric.value))
 
 const chartData = computed(() => {
+  try {
   const needsCruise = CRUISE_METRICS.has(xMetric.value) || CRUISE_METRICS.has(yMetric.value)
   if (needsCruise && props.targetCl == null) return []
 
@@ -109,6 +112,7 @@ const chartData = computed(() => {
       isSelected: analyser.profileName === selectedAirfoilData.value.profileName,
     }
   }).filter(d => d.x != null && d.y != null)
+  } catch (e) { setError(e); return [] }
 })
 
 const hasData = computed(() => chartData.value.length > 0)

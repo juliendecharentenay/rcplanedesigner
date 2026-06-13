@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
 import * as d3 from 'd3'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const props = defineProps({
   data:   { type: Array,  required: true }, // [{profileName, x, y, isSelected}]
@@ -9,6 +10,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select:airfoil'])
+
+const setError = inject(SET_ERROR_KEY)
 
 const containerEl = ref(null)
 const svgEl       = ref(null)
@@ -46,6 +49,7 @@ function fmt(v) {
 }
 
 function draw() {
+  try {
   const width  = containerW.value
   const height = Math.max(containerH.value, 260)
   const iW     = width  - MARGIN.left - MARGIN.right
@@ -183,7 +187,7 @@ function draw() {
   function hideTooltip() {
     tooltip.style('display', 'none')
   }
-
+  } catch (e) { setError(e); return }
 }
 </script>
 

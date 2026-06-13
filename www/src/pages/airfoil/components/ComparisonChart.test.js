@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import ComparisonChart from './ComparisonChart.vue'
+import { SET_ERROR_KEY } from '@/composables/useError.js'
 
 const MOCK_DATA = [
   { profileName: 'E168 (12%)', x: 3.5,  y: 0.8, isSelected: true  },
@@ -20,7 +21,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mountChart(props = {}) {
+function mountChart(props = {}, setError = vi.fn()) {
   return mount(ComparisonChart, {
     props: {
       data:   MOCK_DATA,
@@ -28,6 +29,7 @@ function mountChart(props = {}) {
       yLabel: 'Cruise CL',
       ...props,
     },
+    global: { provide: { [SET_ERROR_KEY]: setError } },
   })
 }
 
@@ -57,5 +59,26 @@ describe('ComparisonChart', () => {
     })
     mountChart()
     expect(observe).toHaveBeenCalledOnce()
+  })
+
+  it('calls setError and does not crash when draw() throws', async () => {
+    const setError = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb) { this._cb = cb }
+      observe() { this._cb([{ contentRect: { width: 400, height: 300 } }]) }
+      disconnect() {}
+    })
+    // Non-enumerable getter: Vue test-utils deep traversal uses Object.keys()
+    // so it skips non-enumerable props; d3's accessor d => d.x still triggers it.
+    const badItem = { profileName: 'Bad', y: 0.5, isSelected: false }
+    Object.defineProperty(badItem, 'x', {
+      get() { throw new Error('x access failed') },
+      enumerable: false,
+    })
+    const wrapper = mountChart({ data: [badItem] }, setError)
+    await flushPromises()
+    expect(wrapper.exists()).toBe(true)
+    expect(setError).toHaveBeenCalledOnce()
+    expect(setError.mock.calls[0][0]).toBeInstanceOf(Error)
   })
 })
