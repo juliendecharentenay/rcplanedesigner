@@ -58,4 +58,22 @@ describe('useUnits', () => {
     const { result } = mountWithUnits('SI')
     expect(typeof result.convertDistance).toBe('function')
   })
+
+  it('areaUnit is "m²" when system is SI', () => {
+    const { result } = mountWithUnits('SI')
+    expect(result.areaUnit.value).toBe('m²')
+  })
+
+  it('areaUnit is "ft²" when system is Imperial', () => {
+    const { result } = mountWithUnits('Imperial')
+    expect(result.areaUnit.value).toBe('ft²')
+  })
+
+  it('areaUnit updates reactively when state changes', async () => {
+    const { result, state } = mountWithUnits('SI')
+    expect(result.areaUnit.value).toBe('m²')
+    state.value = { ...state.value, units: 'Imperial' }
+    await Promise.resolve()
+    expect(result.areaUnit.value).toBe('ft²')
+  })
 })

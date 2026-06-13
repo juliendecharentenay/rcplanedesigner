@@ -91,3 +91,16 @@ export function convertWingLoading(value, fromSystem, toSystem) {
   if (fromSystem === toSystem) return value
   return fromSystem === 'SI' ? value / OZ_SQFT_TO_G_SQDM : value * OZ_SQFT_TO_G_SQDM
 }
+
+// — Area —
+// 1 m² = M_TO_FT² ft²  (derived from M_TO_FT = 3.28084)
+const SQM_TO_SQFT = M_TO_FT * M_TO_FT   // ≈ 10.76391
+
+export function getAreaUnit(system) {
+  return system === 'Imperial' ? 'ft²' : 'm²'
+}
+
+export function convertArea(value, fromSystem, toSystem) {
+  if (fromSystem === toSystem) return value
+  return fromSystem === 'SI' ? value * SQM_TO_SQFT : value / SQM_TO_SQFT
+}

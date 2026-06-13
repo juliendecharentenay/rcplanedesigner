@@ -35,6 +35,10 @@ export function useAppState(onError) {
     cruisingSpeed:  0,         // m/s (SI) or mph (Imperial)
     planeType:      'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
     airfoilProfile: null,      // profileName string or null (no selection)
+    wingSpan:       0,         // metres (SI) or feet (Imperial)
+    rootChord:      0,         // metres (SI) or feet (Imperial)
+    tipChord:       0,         // metres (SI) or feet (Imperial)
+    sweepAngle:     0,         // degrees (no unit conversion)
   })
 
   // — Accessors —
@@ -54,6 +58,9 @@ export function useAppState(onError) {
         next.siteAltitude = convertDistance(state.value.siteAltitude, state.value.units, partial.units)
         next.wingLoading   = convertWingLoading(state.value.wingLoading, state.value.units, partial.units)
         next.cruisingSpeed = convertSpeed(state.value.cruisingSpeed, state.value.units, partial.units)
+        next.wingSpan      = convertDistance(state.value.wingSpan,   state.value.units, partial.units)
+        next.rootChord     = convertDistance(state.value.rootChord,  state.value.units, partial.units)
+        next.tipChord      = convertDistance(state.value.tipChord,   state.value.units, partial.units)
       }
       state.value = next
     } catch (err) {

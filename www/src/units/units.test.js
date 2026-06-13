@@ -7,6 +7,7 @@ import {
   getTemperatureUnit, convertTemperature, kelvinToCelsius, kelvinToFahrenheit,
   getPressureUnit, convertPressure,
   getDensityUnit, convertDensity,
+  getAreaUnit, convertArea,
 } from './units'
 
 describe('UNIT_SYSTEMS', () => {
@@ -223,5 +224,36 @@ describe('convertSpeed', () => {
     const original = 35
     const converted = convertSpeed(convertSpeed(original, 'Imperial', 'SI'), 'SI', 'Imperial')
     expect(converted).toBeCloseTo(original)
+  })
+})
+
+describe('getAreaUnit', () => {
+  it('returns "m²" for SI', () => {
+    expect(getAreaUnit('SI')).toBe('m²')
+  })
+
+  it('returns "ft²" for Imperial', () => {
+    expect(getAreaUnit('Imperial')).toBe('ft²')
+  })
+})
+
+describe('convertArea', () => {
+  it('returns the same value when systems are equal', () => {
+    expect(convertArea(5, 'SI', 'SI')).toBe(5)
+    expect(convertArea(5, 'Imperial', 'Imperial')).toBe(5)
+  })
+
+  it('converts m² to ft²', () => {
+    expect(convertArea(1, 'SI', 'Imperial')).toBeCloseTo(10.7639, 3)
+  })
+
+  it('converts ft² to m²', () => {
+    expect(convertArea(10.7639, 'Imperial', 'SI')).toBeCloseTo(1.0, 3)
+  })
+
+  it('round-trips without drift', () => {
+    const original = 3
+    const converted = convertArea(convertArea(original, 'SI', 'Imperial'), 'Imperial', 'SI')
+    expect(converted).toBeCloseTo(original, 5)
   })
 })

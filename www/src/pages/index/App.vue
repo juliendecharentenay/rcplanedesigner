@@ -1,5 +1,5 @@
 <script setup>
-import { provide } from 'vue'
+import { ref, provide } from 'vue'
 import { useError, SET_ERROR_KEY } from '@/composables/useError'
 import { useAppState, APP_STATE_KEY } from './composables/useAppState'
 import { useFocusedParam, FOCUSED_PARAM_KEY } from './composables/useFocusedParam'
@@ -19,6 +19,8 @@ provide(APP_STATE_KEY, { getState, setState })
 
 provide(FOCUSED_PARAM_KEY, useFocusedParam())
 provide(AIRFOILS_KEY, useAirfoils())
+
+const activePanel = ref('general')  // 'general' | 'wing-definition'
 </script>
 
 <template>
@@ -27,9 +29,9 @@ provide(AIRFOILS_KEY, useAirfoils())
   <div class="flex flex-col h-screen overflow-hidden bg-slate-50">
     <AppHeader />
     <div class="relative flex flex-1 overflow-hidden">
-      <ParameterPanel />
+      <ParameterPanel :active-panel="activePanel" @navigate="activePanel = $event" />
       <AirfoilPanel />
-      <SvgPanel />
+      <SvgPanel :active-panel="activePanel" />
       <ActionPanel />
     </div>
   </div>

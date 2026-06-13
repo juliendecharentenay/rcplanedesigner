@@ -167,6 +167,63 @@ const { system, distanceUnit, convertDistance } = useUnits()
 
 When adding a new quantity to `units.js`, add a matching computed ref here (e.g. `massUnit`).
 
+## Focused parameters
+
+`ActionPanel.vue` displays contextual help for whichever parameter input is currently focused. The mechanism is owned by `src/pages/index/composables/useFocusedParam.js` and wired via provide/inject.
+
+```js
+const { focusedKey, focusedContent, register, setFocused, clearFocused } = useFocusedParam()
+// focusedKey     — Ref<string|null>, the currently focused parameter key
+// focusedContent — computed { title, body } for the active key, or null
+// register(key, { title, body }) — registers help content; body may be a computed ref for unit-aware text
+// setFocused(key) / clearFocused() — called by parameter panel components
+```
+
+`App.vue` instantiates the composable and provides it:
+
+```js
+import { useFocusedParam, FOCUSED_PARAM_KEY } from './composables/useFocusedParam'
+provide(FOCUSED_PARAM_KEY, useFocusedParam())
+```
+
+**Pattern for parameter panel components:**
+
+1. Inject and destructure at the top of `<script setup>`:
+   ```js
+   import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam.js'
+   const { register, setFocused, clearFocused } = inject(FOCUSED_PARAM_KEY)
+   ```
+
+2. Register help content for each parameter (use a computed ref for unit-aware body text):
+   ```js
+   const myParamBody = computed(() =>
+     system.value === 'Imperial' ? 'Help text in Imperial...' : 'Help text in SI...'
+   )
+   register('myParam', { title: 'My Parameter', body: myParamBody })
+   ```
+
+3. Wrap each input in a div with `@focusin`, and add `@focusout` on the panel root:
+   ```html
+   <div @focusout="onPanelFocusOut">
+     <div @focusin="setFocused('myParam')">
+       <BaseInput ... />
+     </div>
+   </div>
+   ```
+
+4. Implement `onPanelFocusOut` with a 200 ms debounce so tab-navigation within the panel doesn't flicker:
+   ```js
+   function onPanelFocusOut(e) {
+     if (!e.currentTarget.contains(e.relatedTarget)) {
+       setTimeout(() => clearFocused(), 200)
+     }
+   }
+   ```
+
+Every new parameter panel component that contains editable inputs **must** wire up focused parameter support. Tests must provide a `FOCUSED_PARAM_KEY` stub (`{ register: vi.fn(), setFocused: vi.fn(), clearFocused: vi.fn() }`).
+
+**Reference implementations:** `ParameterPanel.vue` (General panel), `WingDefinitionPanel.vue` (Wing Definition panel).
+
 ## UI layout
 
 Full-viewport layout composed in `src/pages/index/App.vue`:

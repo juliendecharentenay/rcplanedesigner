@@ -8,7 +8,7 @@ function setup(onError = vi.fn()) {
 describe('useAppState', () => {
   it('returns the default state initially', () => {
     const { getState } = setup()
-    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 0, cruisingSpeed: 0, planeType: 'Trainer', airfoilProfile: null })
+    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 0, cruisingSpeed: 0, planeType: 'Trainer', airfoilProfile: null, wingSpan: 0, rootChord: 0, tipChord: 0, sweepAngle: 0 })
   })
 
   it('defaults airfoilProfile to null', () => {
@@ -154,6 +154,60 @@ describe('useAppState', () => {
     const snap = getState()
     snap.siteAltitude = 999
     expect(snap.siteAltitude).toBe(100)
+  })
+
+  it('defaults wingSpan to 0', () => {
+    const { getState } = setup()
+    expect(getState().wingSpan).toBe(0)
+  })
+
+  it('defaults rootChord to 0', () => {
+    const { getState } = setup()
+    expect(getState().rootChord).toBe(0)
+  })
+
+  it('defaults tipChord to 0', () => {
+    const { getState } = setup()
+    expect(getState().tipChord).toBe(0)
+  })
+
+  it('defaults sweepAngle to 0', () => {
+    const { getState } = setup()
+    expect(getState().sweepAngle).toBe(0)
+  })
+
+  it('setState can update wingSpan', () => {
+    const { getState, setState } = setup()
+    setState({ wingSpan: 1.5 })
+    expect(getState().wingSpan).toBe(1.5)
+  })
+
+  it('wingSpan converts from SI to Imperial when units change', () => {
+    const { getState, setState } = setup()
+    setState({ wingSpan: 1 })             // 1 m
+    setState({ units: 'Imperial' })
+    expect(getState().wingSpan).toBeCloseTo(3.28084, 2)
+  })
+
+  it('rootChord converts from SI to Imperial when units change', () => {
+    const { getState, setState } = setup()
+    setState({ rootChord: 1 })            // 1 m
+    setState({ units: 'Imperial' })
+    expect(getState().rootChord).toBeCloseTo(3.28084, 2)
+  })
+
+  it('tipChord converts from SI to Imperial when units change', () => {
+    const { getState, setState } = setup()
+    setState({ tipChord: 1 })             // 1 m
+    setState({ units: 'Imperial' })
+    expect(getState().tipChord).toBeCloseTo(3.28084, 2)
+  })
+
+  it('sweepAngle is NOT converted when units change', () => {
+    const { getState, setState } = setup()
+    setState({ sweepAngle: 25 })
+    setState({ units: 'Imperial' })
+    expect(getState().sweepAngle).toBe(25)
   })
 
   it('calls onError when setState throws', () => {
