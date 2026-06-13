@@ -7,6 +7,7 @@ export function useError() {
 
   function setError(err) {
     if (error.value === null) {
+      if (err) console.error(err);
       error.value = err
     }
   }
