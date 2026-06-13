@@ -132,7 +132,7 @@ function draw() {
         .attr('stroke', '#cbd5e1').attr('stroke-width', 1)
         .attr('stroke-dasharray', '5,3')
 
-      const crossAoa = props.airfoil.getCruiseCondition(props.targetCl).cruiseAoa
+      const crossAoa = props.airfoil.getCruiseConditions(props.targetCl).cruiseAoa
       if (crossAoa != null) {
         g.append('line')
           .attr('x1', xScale(crossAoa)).attr('x2', xScale(crossAoa))
