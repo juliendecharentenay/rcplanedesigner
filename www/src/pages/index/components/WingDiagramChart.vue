@@ -2,12 +2,16 @@
 import { ref, watch, onMounted, onUnmounted, inject, computed } from 'vue'
 import * as d3 from 'd3'
 import { APP_STATE_KEY } from '../composables/useAppState'
+import { AIRFOILS_KEY } from '../composables/useAirfoils'
 import { useUnits } from '../composables/useUnits'
 import { SET_ERROR_KEY } from '@/composables/useError.js'
-import { convertDistance } from '@/units/units.js'
+import { convertDistance, convertWingLoading, convertSpeed } from '@/units/units.js'
+import { AirfoilAnalyser } from '@/js/AirfoilAnalyser.js'
+import { WingAnalyser } from '@/js/WingAnalyser.js'
 
 const setError = inject(SET_ERROR_KEY)
 const { getState } = inject(APP_STATE_KEY)
+const { airfoils } = inject(AIRFOILS_KEY)
 const { system } = useUnits()
 
 const containerEl = ref(null)
@@ -38,6 +42,57 @@ const geometry = computed(() => {
   } catch (e) { setError(e); return { span: 0, rc: 0, tc: 0, sweep: 0 } }
 })
 
+// ── WingAnalyser instance (derived from geometry, all SI) ─────────────────────
+
+const wingAnalyser = computed(() => {
+  try {
+    const { span, rc, tc, sweep } = geometry.value
+    return new WingAnalyser({ wingSpan: span, rootChord: rc, tipChord: tc, sweepAngle: sweep })
+  } catch (e) { setError(e); return null }
+})
+
+function fmtAoa(val) {
+  if (val == null || !isFinite(val)) return '—'
+  return val.toFixed(1) + '°'
+}
+
+// ── Performance data computed ─────────────────────────────────────────────────
+const performanceData = computed(() => {
+  const nullResult = {
+    cruiseAoaInfinite: null, cruiseAoaWing: null,
+    landingAoaInfinite: null, landingAoaWing: null,
+  }
+  try {
+    const s = getState()
+
+    // 1. Look up the analyser for the selected airfoil
+    const analyser = airfoils.find(a => a.profileName === s.airfoilProfile) ?? null
+    if (!analyser) return nullResult
+
+    // 2. Convert state to SI
+    const wl  = convertWingLoading(s.wingLoading,   s.units, 'SI')  // g/dm²
+    const spd = convertSpeed(s.cruisingSpeed,        s.units, 'SI')  // m/s
+    const alt = convertDistance(s.siteAltitude,      s.units, 'SI')  // m
+
+    // 3. Cruise (Infinite AR)
+    const cruiseCl = AirfoilAnalyser.convertSpeedToCl(wl, spd, alt)
+    const { cruiseAoa: cruiseAoaInfinite, cruiseCl: resolvedCruiseCl } =
+      analyser.getCruiseConditions(cruiseCl)
+
+    // 4. Landing (Infinite AR) — pre-computed on the analyser instance
+    const landingAoaInfinite = analyser.landingAoa
+    const landingCl          = analyser.landingCl
+
+    // 5. Wing corrections via WingAnalyser
+    const wa = wingAnalyser.value
+    if (wa == null) throw new Error(`Wing analyser is null`)
+    const cruiseAoaWing  = wa.cruiseAoaWing(cruiseAoaInfinite, resolvedCruiseCl) ?? null
+    const landingAoaWing = wa.landingAoaWing(landingAoaInfinite, landingCl)      ?? null
+
+    return { cruiseAoaInfinite, cruiseAoaWing, landingAoaInfinite, landingAoaWing }
+  } catch (e) { setError(e); return nullResult }
+})
+
 watch(
   [geometry, containerW, containerH],
   () => {
@@ -58,10 +113,11 @@ function draw() {
       return
     }
 
+    const wa = wingAnalyser.value
+    if (wa == null) throw new Error(`Wing analyser is null`)
     const halfSpan = span / 2
-    const sweepRad = sweep * Math.PI / 180
-    const xTipLE   = halfSpan * Math.tan(sweepRad) + 0.25 * (rc - tc)
-    const λ        = tc / rc
+    const xTipLE   = wa.xTipLE
+    const λ        = wa.taperRatio
 
     const yMin = Math.min(0, xTipLE)
     const yMax = Math.max(rc, xTipLE + tc)
@@ -156,9 +212,9 @@ function draw() {
       .text('¼ chord')
 
     // ── MAC (grey dashed, right side) ─────────────────────────────────────
-    const mac    = (2 / 3) * rc * (1 + λ + λ * λ) / (1 + λ)
-    const yMac   = halfSpan * (1 + 2 * λ) / (3 * (1 + λ))
-    const xMacLE = xTipLE * (yMac / halfSpan)
+    const mac     = wa.mac
+    const yMac    = wa.macSpanPosition
+    const xMacLE  = wa.macLeadingEdgeOffset
 
     const macStart = toSvg(yMac, xMacLE)
     const macEnd   = toSvg(yMac, xMacLE + mac)
@@ -246,5 +302,30 @@ function draw() {
 <template>
   <div ref="containerEl" class="relative w-full h-full">
     <svg ref="svgEl" class="block w-full h-full" />
+
+    <!-- Performance table overlay — top-right corner -->
+    <div class="absolute top-0 right-0 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-bl-md text-xs">
+      <table class="border-collapse">
+        <thead>
+          <tr>
+            <th class="px-2 py-1 text-left font-medium text-slate-500"></th>
+            <th class="px-2 py-1 text-center font-medium text-slate-500">Infinite AR</th>
+            <th class="px-2 py-1 text-center font-medium text-slate-500">Wing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="px-2 py-1 text-slate-600">Cruise AoA</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.cruiseAoaInfinite) }}</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.cruiseAoaWing) }}</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1 text-slate-600">Landing AoA</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaInfinite) }}</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaWing) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>

@@ -4,7 +4,7 @@ import { APP_STATE_KEY } from '../../composables/useAppState'
 import { useUnits } from '../../composables/useUnits'
 import { SET_ERROR_KEY } from '@/composables/useError.js'
 import { FOCUSED_PARAM_KEY } from '../../composables/useFocusedParam.js'
-import { atmosphere } from '@/js/atmosphere.js'
+import { WingAnalyser } from '@/js/WingAnalyser.js'
 import { convertDistance, convertSpeed } from '@/units/units.js'
 import ParameterRow from '@/components/ParameterRow.vue'
 import BaseInput from '@/components/BaseInput.vue'
@@ -65,6 +65,8 @@ const sweepAngle = computed({
   set: (v) => setState({ sweepAngle: Number(v) }),
 })
 
+// ── WingAnalyser instance (SI values) ─────────────────────────────────────────
+
 function siChord(displayValue) {
   return convertDistance(displayValue, system.value, 'SI')
 }
@@ -75,51 +77,45 @@ function siAltitude(displayValue) {
   return convertDistance(displayValue, system.value, 'SI')
 }
 
+const analyser = computed(() => {
+  try {
+    const s = getState()
+    return new WingAnalyser({
+      wingSpan:   siChord(s.wingSpan),
+      rootChord:  siChord(s.rootChord),
+      tipChord:   siChord(s.tipChord),
+      sweepAngle: s.sweepAngle,
+    })
+  } catch (e) { setError(e); return null }
+})
+
 const taperRatio = computed(() => {
   try {
-    const rc = siChord(getState().rootChord)
-    const tc = siChord(getState().tipChord)
-    if (rc <= 0) return null
-    return tc / rc
+    return analyser.value?.taperRatio ?? null
   } catch (e) { setError(e); return null }
 })
 
 const wingArea = computed(() => {
   try {
-    const s = getState()
-    if (s.wingSpan <= 0 || s.rootChord <= 0) return null
-    return (s.rootChord + s.tipChord) / 2 * s.wingSpan
+    return analyser.value?.wingArea ?? null
   } catch (e) { setError(e); return null }
 })
 
 const aspectRatio = computed(() => {
   try {
-    const s = getState()
-    const span_SI = siChord(s.wingSpan)
-    const rc_SI   = siChord(s.rootChord)
-    const tc_SI   = siChord(s.tipChord)
-    if (span_SI <= 0 || rc_SI <= 0) return null
-    const area_SI = (rc_SI + tc_SI) / 2 * span_SI
-    if (area_SI <= 0) return null
-    return (span_SI * span_SI) / area_SI
+    return analyser.value?.aspectRatio ?? null
   } catch (e) { setError(e); return null }
 })
 
 const reynoldsNumbers = computed(() => {
   try {
     const s = getState()
-    const rc_SI    = siChord(s.rootChord)
-    const tc_SI    = siChord(s.tipChord)
-    const span_SI  = siChord(s.wingSpan)
     const speed_SI = siSpeed(s.cruisingSpeed)
     const alt_SI   = siAltitude(s.siteAltitude)
-
-    if (span_SI <= 0 || rc_SI <= 0 || speed_SI <= 0) return { root: null, tip: null }
-
-    const { density, viscosity } = atmosphere(alt_SI)
+    if (!analyser.value || speed_SI <= 0) return { root: null, tip: null }
     return {
-      root: (density * speed_SI * rc_SI) / viscosity,
-      tip:  (density * speed_SI * tc_SI) / viscosity,
+      root: analyser.value.rootReynolds(speed_SI, alt_SI),
+      tip:  analyser.value.tipReynolds(speed_SI, alt_SI),
     }
   } catch (e) { setError(e); return { root: null, tip: null } }
 })
