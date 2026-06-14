@@ -308,18 +308,18 @@ function draw() {
       <table class="border-collapse">
         <thead>
           <tr>
-            <th class="px-2 py-1 text-left font-medium text-slate-500"></th>
-            <th class="px-2 py-1 text-center font-medium text-slate-500">Infinite AR</th>
-            <th class="px-2 py-1 text-center font-medium text-slate-500">Wing</th>
+            <th class="table-th text-left"></th>
+            <th class="table-th text-center">Infinite AR</th>
+            <th class="table-th text-center">Wing</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
+          <tr class="table-row-banded">
             <td class="px-2 py-1 text-slate-600">Cruise AoA</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.cruiseAoaInfinite) }}</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.cruiseAoaWing) }}</td>
           </tr>
-          <tr>
+          <tr class="table-row-banded">
             <td class="px-2 py-1 text-slate-600">Landing AoA</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaInfinite) }}</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaWing) }}</td>

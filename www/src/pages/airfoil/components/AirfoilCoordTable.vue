@@ -21,15 +21,15 @@ const coords = computed(() => {
     <table class="w-full text-xs font-mono border-collapse">
       <thead class="sticky top-0 bg-white z-10">
         <tr>
-          <th class="text-left px-3 py-1.5 text-slate-500 font-semibold uppercase tracking-wide border-b border-slate-200">X</th>
-          <th class="text-left px-3 py-1.5 text-slate-500 font-semibold uppercase tracking-wide border-b border-slate-200">Y</th>
+          <th class="table-th text-left">X</th>
+          <th class="table-th text-left">Y</th>
         </tr>
       </thead>
       <tbody>
         <tr
           v-for="(c, i) in coords"
           :key="i"
-          :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
+          class="table-row-banded"
         >
           <td class="px-3 py-1 text-slate-600">{{ c.x.toFixed(2) }}</td>
           <td class="px-3 py-1 text-slate-600">{{ c.y.toFixed(2) }}</td>

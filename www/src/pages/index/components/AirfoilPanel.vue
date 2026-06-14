@@ -28,10 +28,10 @@ const selectedProfile = computed(() => getState().airfoilProfile)
       <table class="w-full text-xs">
         <thead>
           <tr>
-            <th class="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wider">Profile</th>
-            <th class="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 uppercase tracking-wider">Zero Lift AoA</th>
-            <th class="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 uppercase tracking-wider">Stall AoA</th>
-            <th class="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 uppercase tracking-wider">Stall Cl</th>
+            <th class="table-th text-left sticky top-0 bg-slate-50">Profile</th>
+            <th class="table-th text-right sticky top-0 bg-slate-50">Zero Lift AoA</th>
+            <th class="table-th text-right sticky top-0 bg-slate-50">Stall AoA</th>
+            <th class="table-th text-right sticky top-0 bg-slate-50">Stall Cl</th>
           </tr>
         </thead>
         <tbody>
@@ -39,7 +39,7 @@ const selectedProfile = computed(() => getState().airfoilProfile)
             v-for="airfoil in airfoils"
             :key="airfoil.profileName"
             :class="[
-              'border-b border-slate-100 transition-colors cursor-pointer',
+              'table-row transition-colors cursor-pointer',
               airfoil.profileName === selectedProfile
                 ? 'bg-sky-50 text-sky-900'
                 : 'text-slate-700 hover:bg-slate-50',
