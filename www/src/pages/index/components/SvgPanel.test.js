@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SvgPanel from './SvgPanel.vue'
 
-const WingDiagramChartStub = { name: 'WingDiagramChart', template: '<div data-testid="wing-diagram-chart" />' }
+const WingDiagramChartStub    = { name: 'WingDiagramChart',    template: '<div data-testid="wing-diagram-chart" />' }
+const FuselageDiagramChartStub = { name: 'FuselageDiagramChart', template: '<div data-testid="fuselage-diagram-chart" />' }
 
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class {
@@ -19,7 +20,10 @@ function mountPanel(props = {}) {
   return mount(SvgPanel, {
     props,
     global: {
-      stubs: { WingDiagramChart: WingDiagramChartStub },
+      stubs: {
+        WingDiagramChart: WingDiagramChartStub,
+        FuselageDiagramChart: FuselageDiagramChartStub,
+      },
     },
   })
 }
@@ -61,5 +65,15 @@ describe('SvgPanel', () => {
   it('renders WingDiagramChart when activePanel is "wing-definition"', () => {
     const wrapper = mountPanel({ activePanel: 'wing-definition' })
     expect(wrapper.find('[data-testid="wing-diagram-chart"]').exists()).toBe(true)
+  })
+
+  it('renders FuselageDiagramChart when activePanel is "fuselage-definition"', () => {
+    const wrapper = mountPanel({ activePanel: 'fuselage-definition' })
+    expect(wrapper.find('[data-testid="fuselage-diagram-chart"]').exists()).toBe(true)
+  })
+
+  it('does not render WingDiagramChart when activePanel is "fuselage-definition"', () => {
+    const wrapper = mountPanel({ activePanel: 'fuselage-definition' })
+    expect(wrapper.find('[data-testid="wing-diagram-chart"]').exists()).toBe(false)
   })
 })

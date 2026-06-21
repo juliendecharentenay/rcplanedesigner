@@ -11,7 +11,7 @@ import { AIRFOILS_KEY } from './composables/useAirfoils'
 vi.mock('./components/AppHeader.vue',      () => ({ default: { template: '<div />' } }))
 vi.mock('./components/ParameterPanel.vue', () => ({ default: { template: '<div />', props: ['activePanel'], emits: ['navigate'] } }))
 vi.mock('./components/AirfoilPanel.vue',   () => ({ default: { template: '<div />' } }))
-vi.mock('./components/SvgPanel.vue',       () => ({ default: { template: '<div />', props: ['activePanel'] } }))
+vi.mock('./components/SvgPanel.vue',       () => ({ default: { template: '<div />', props: ['activePanel', 'showDragCurve'], emits: ['update:showDragCurve'] } }))
 vi.mock('./components/ActionPanel.vue',    () => ({ default: { template: '<div />' } }))
 vi.mock('@/components/ErrorDialog.vue',    () => ({ default: { template: '<div />', props: ['error'], emits: ['dismiss'] } }))
 
@@ -35,6 +35,7 @@ const URL_DEFAULTS = {
   tipChord:       0.2,
   sweepAngle:     0,
   activePanel:    'general',
+  showDragCurve:  false,
 }
 
 // We need to intercept useAirfoils so tests can control which airfoils are "known"
@@ -264,5 +265,105 @@ describe('App.vue — URL sync', () => {
     const calls = replaceStateSpy.mock.calls
     const lastUrl = calls[calls.length - 1][2]
     expect(lastUrl).toBe('/')
+  })
+
+  it('test 19: view=drag in URL → showDragCurve serialised as view=drag', async () => {
+    const search = '?view=drag'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).toContain('view=drag')
+  })
+
+  it('test 20: view absent or unknown → view key not written to URL', async () => {
+    await mountApp('')
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).not.toContain('view=')
+  })
+
+  it('test 21: view=planform (invalid) → treated as false, view key absent', async () => {
+    const search = '?view=planform'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).not.toContain('view=')
+  })
+
+  // ── Fuselage & tail URL sync tests ─────────────────────────────────────────
+
+  it('test 22: fuselage/tail fields at defaults → no extra keys in URL', async () => {
+    await mountApp('')
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).not.toContain('fw=')
+    expect(lastUrl).not.toContain('ff=')
+    expect(lastUrl).not.toContain('rf=')
+    expect(lastUrl).not.toContain('ts=')
+    expect(lastUrl).not.toContain('tch=')
+    expect(lastUrl).not.toContain('tfoil=')
+  })
+
+  it('test 23: fw param parsed and serialised back', async () => {
+    const search = '?fw=0.150'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).toContain('fw=')
+  })
+
+  it('test 24: ff and rf params parsed and serialised back', async () => {
+    const search = '?ff=0.700&rf=1.100'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).toContain('ff=')
+    expect(lastUrl).toContain('rf=')
+  })
+
+  it('test 25: ts and tch params parsed and serialised back', async () => {
+    const search = '?ts=0.500&tch=0.200'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).toContain('ts=')
+    expect(lastUrl).toContain('tch=')
+  })
+
+  it('test 26: tfoil with known airfoil that differs from default → not serialised (equals default)', async () => {
+    // KNOWN_AIRFOIL = 'E168  (12.45%)' is also the default tailAirfoil,
+    // so supplying it in the URL should result in tfoil NOT being written back
+    const search = `?tfoil=${encodeURIComponent(KNOWN_AIRFOIL)}`
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    // It equals the default, so it should be omitted
+    expect(lastUrl).not.toContain('tfoil=')
+  })
+
+  it('test 27: tfoil with unknown airfoil → falls back to default, tfoil absent from URL', async () => {
+    const search = '?tfoil=NoSuchFoil'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).not.toContain('tfoil=')
+  })
+
+  it('test 28: fw=999 (out of range) → falls back to default 0.12', async () => {
+    const search = '?fw=999'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    // fuselageWidth default is 0.12, out-of-range value should not be serialised as non-default
+    // After falling back to 0.12, fw should not appear in URL
+    expect(lastUrl).not.toContain('fw=')
+  })
+
+  it('test 29: panel=fuselage-definition accepted', async () => {
+    const search = '?panel=fuselage-definition'
+    await mountApp(search)
+    const calls = replaceStateSpy.mock.calls
+    const lastUrl = calls[calls.length - 1][2]
+    expect(lastUrl).toContain('panel=fuselage-definition')
   })
 })

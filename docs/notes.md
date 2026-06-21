@@ -370,3 +370,158 @@ Public API:
 **Next chunk:** none — feature complete
 
 ---
+
+## Development Status Update — 2026-06-20
+
+| Feature | Functional spec | Technical spec | Status |
+|---------|----------------|----------------|--------|
+| Wing Drag Evaluation Expansion | docs/functional/wing-drag-evaluation.md | docs/technical/wing-drag-evaluation.md | In progress |
+
+---
+
+## Scope evaluation — Wing Drag Evaluation Expansion — 2026-06-20
+
+**Score:** Modules 2 + Endpoints 1 + Entities 2 + Integrations 3 + Criteria 3 = 11. Split into 2 chunks.
+
+**Chunk 1 (Table expansion):** Add `inducedCd(cl)` method to `WingAnalyser.js`. Extend `performanceData` computed in `WingDiagramChart.vue` to include `baseCdCruise`, `inducedCdWing`, `totalCdWing`. Add three new drag rows + `<hr>` separator to the template table. Add `fmtCd()` formatter. Covers spec Sections 3.1–3.6. Precondition: existing WingAnalyser and WingDiagramChart in place. Output: 3 new table rows rendering at cruise; 11 new tests passing.
+
+**Chunk 2 (Drag curve overlay):** Add `showDragCurve` ref, `dragCurveAvailable` and `dragCurveData` computeds to `WingDiagramChart.vue`. Update watch. Add toggle button and `WingDragCurveChart` to template. Create new `WingDragCurveChart.vue` component with D3 rendering, 3 curves, 2 vertical markers, dot-and-tooltip hover. Covers spec Sections 4.1–4.7. Precondition: Chunk 1 complete. Output: toggleable drag curve overlay; 15 new tests passing.
+
+---
+
+## Implementation Log
+
+### Wing Drag Evaluation Expansion — 2026-06-20
+
+**Chunk 1 of 2:** Performance table expansion — WingAnalyser.inducedCd(), performanceData extension, 3 drag rows
+
+**Files created/modified:**
+- `www/src/js/WingAnalyser.js` — added `inducedCd(cl)` method: `(cl²)/(π × OSWALD_E × AR)`, mirrors `inducedAoaDeg` null-guard semantics
+- `www/src/pages/index/components/WingDiagramChart.vue` — extended `nullResult` with 3 new fields; extended `getCruiseConditions` destructuring to capture `cruiseCd`; added drag coefficient computation block; added `fmtCd()` formatter; added `<hr>` separator row + 3 drag coefficient rows to template tbody
+- `www/src/js/WingAnalyser.test.js` — 4 new tests (T31–T34) for `inducedCd`
+- `www/src/pages/index/components/WingDiagramChart.test.js` — 7 new drag tests (T-drag-1 through T-drag-7); updated MOCK_ANALYSER to return `cruiseCd`
+
+**Tests written:** 11 new — all passing; full suite 460 passing
+
+**Spec items not implemented:** Sections 4.x (drag curve) — deferred to Chunk 2
+
+**Next chunk:** Chunk 2 — drag curve overlay (WingDragCurveChart.vue new component + WingDiagramChart.vue additions)
+
+---
+
+**Chunk 2 of 2:** Drag curve overlay — WingDragCurveChart.vue (new) + WingDiagramChart.vue additions
+
+**Files created/modified:**
+- `www/src/pages/index/components/WingDragCurveChart.vue` — new D3 chart component: ResizeObserver pattern, 100-point speed loop from stall speed, 3 curves (base drag dashed slate, induced drag dashed sky, total drag solid blue), legend, cruise vertical line (red), min-drag vertical line (amber dashed), filled dots at intersections, Vue reactive tooltip, merged-marker logic when speeds within 0.5 m/s, SET_ERROR_KEY error handling
+- `www/src/pages/index/components/WingDragCurveChart.test.js` — new; 11 tests DC-1 through DC-11
+- `www/src/pages/index/components/WingDiagramChart.vue` — added WingDragCurveChart import; added showDragCurve ref, dragCurveAvailable and dragCurveData computeds; updated watch to include showDragCurve and guard draw(); template: v-show on SVG, v-if WingDragCurveChart, toggle button
+- `www/src/pages/index/components/WingDiagramChart.test.js` — 4 new toggle tests G-1 through G-4
+
+**Tests written:** 15 new — all passing; full suite 475 passing (31 test files)
+
+**Spec items not implemented:** none
+
+**Adjacent issues flagged:** none
+
+**Next chunk:** none — feature complete
+
+---
+
+## Development Status Update — 2026-06-20 (final)
+
+| Feature | Functional spec | Technical spec | Implementation | Status |
+|---------|----------------|----------------|----------------|--------|
+| Wing Drag Evaluation Expansion | docs/functional/wing-drag-evaluation.md | docs/technical/wing-drag-evaluation.md | Chunk 1/2 + Chunk 2/2 complete | Complete |
+
+---
+
+## Implementation Log
+
+### Fuselage and Tail Definition — 2026-06-21
+
+**Chunk 1 of 2:** FuselageAnalyser class; WingPlanformLayer shared SVG component; useAppState 6 new fields; FuselageDefinitionPanel; ParameterPanel extensions
+
+**Files created/modified:**
+- `www/src/js/FuselageAnalyser.js` — new plain ES2020 class: static defaults (defaultFrontLength, defaultRearLength, defaultTailSpan, defaultTailChord), getters (tailArea, tailMomentArm, tailAspectRatio), SVG geometry helpers (wingGeometry, fuselageGeometry, tailGeometry)
+- `www/src/js/FuselageAnalyser.test.js` — new; 32 tests
+- `www/src/pages/index/components/WingPlanformLayer.vue` — new prop-driven SVG `<g>` fragment rendering wing planform (polygon, quarter-chord, MAC line, quarter-MAC marker, dimension lines); no state injection
+- `www/src/pages/index/components/WingPlanformLayer.test.js` — new; 12 tests
+- `www/src/pages/index/composables/useAppState.js` — added 6 new fields to STATE_DEFAULTS (fuselageWidth, frontFuselage, rearFuselage, tailSpan, tailChord, tailAirfoil); 5 unit-conversion lines in setState
+- `www/src/pages/index/composables/useAppState.test.js` — updated default snapshot test; 10 new tests for fuselage/tail fields
+- `www/src/pages/index/components/ParameterPanel/FuselageDefinitionPanel.vue` — new panel: 5 number inputs + 1 select; effectiveFrontLength/RearLength/TailSpan/TailChord computeds resolving sentinel zeros; FuselageAnalyser computed; tailArea/tailMomentArm outputs; navigate emit to 'wing-definition'
+- `www/src/pages/index/components/ParameterPanel/FuselageDefinitionPanel.test.js` — new; 22 tests
+- `www/src/pages/index/components/ParameterPanel.vue` — added FuselageDefinitionPanel import; canNavigateToFuselage computed; 'fuselage-definition' nav entry in dropdown; 'Fuselage & Tail' header label case; FuselageDefinitionPanel conditional render
+- `www/src/pages/index/components/ParameterPanel.test.js` — added FuselageDefinitionPanel mock stub; 5 new nav tests
+
+**Tests written:** 81 new — all 557 passing (was 476)
+
+**Spec items not implemented:** Sections 6, 8, 9 (FuselageDiagramChart, SvgPanel, App.vue URL sync) — deferred to Chunk 2
+
+**Adjacent issues flagged:** none
+
+**Next chunk:** Chunk 2 — FuselageDiagramChart, WingDiagramChart refactor to use WingPlanformLayer, SvgPanel extension, App.vue URL sync
+
+---
+
+**Chunk 2 of 2:** FuselageDiagramChart; WingDiagramChart refactored to WingPlanformLayer; SvgPanel + App.vue extensions
+
+**Files created/modified:**
+- `www/src/pages/index/components/FuselageDiagramChart.vue` — new D3-free reactive SVG component: centreline, fuselage body path (Bézier nose oval → rectangular body → tapered tail), WingPlanformLayer for wing, horizontal tail rectangular polygon + ¼-chord line, vertical tail schematic ellipse, two dimension lines with arrow markers; SET_ERROR_KEY guards on all computeds
+- `www/src/pages/index/components/FuselageDiagramChart.test.js` — new; 13 tests
+- `www/src/pages/index/components/WingDiagramChart.vue` — refactored: D3 draw() function removed; svgLayout computed replaced; WingPlanformLayer used for wing rendering; reactive SVG template with v-if; performance table + drag curve unchanged; all 26 existing tests still pass
+- `www/src/pages/index/components/SvgPanel.vue` — added FuselageDiagramChart import + v-else-if conditional
+- `www/src/pages/index/components/SvgPanel.test.js` — 2 new tests for fuselage-definition panel rendering
+- `www/src/pages/index/App.vue` — 6 new URL params (fw, ff, rf, ts, tch, tfoil) parsed in onMounted; serialised in watch; fuselage-definition added to activePanel valid set
+- `www/src/pages/index/App.test.js` — 8 new tests (test 22–29) covering fuselage/tail URL sync
+
+**Tests written:** 23 new (13 FuselageDiagramChart + 2 SvgPanel + 8 App.test.js) — all 580 tests passing (was 557)
+
+**Spec items not implemented:** none
+
+**Adjacent issues flagged:** WingDiagramChart refactor from D3 imperative draw to reactive SVG required converting the D3 `toSvg()` coordinate helper into a prop-driven system. Arrow marker defs now rendered as SVG `<defs>` in the template. The `v-if="svgLayout"` guard handles the "zero geometry" case that previously relied on D3's `selectAll('*').remove()`.
+
+**Next chunk:** none — feature complete
+
+---
+
+## Architectural Decisions
+
+### WingPlanformLayer — shared prop-driven SVG fragment — 2026-06-21
+
+**Context:** Both WingDiagramChart and FuselageDiagramChart need to render the wing planform. Duplicating the geometry code would create a maintenance burden.
+
+**Decision:** Extract wing planform rendering into `WingPlanformLayer.vue`, a prop-driven `<g>` SVG fragment that accepts centreX, topY, scale, and all wing geometry values as props. It injects no application state.
+
+**Rationale:** Props-driven means the component is reusable in any future SVG canvas (e.g. Centre-of-Gravity panel) without pulling in provide/inject chains. Matches the `FuselageAnalyser` framework-free pattern for the non-Vue layer.
+
+**Consequences:** WingDiagramChart.vue was refactored from D3 imperative drawing to reactive SVG. The D3 `draw()` function was removed entirely, replaced by a `svgLayout` computed and template-driven rendering. All 26 existing tests continue to pass unchanged.
+
+### Zero-means-default sentinel for fuselage/tail state fields — 2026-06-21
+
+**Context:** frontFuselage, rearFuselage, tailSpan, and tailChord have dynamically computed defaults (dependent on MAC and wingArea). The defaults change when wing geometry changes.
+
+**Decision:** Store `0` as the sentinel meaning "use computed default". `FuselageAnalyser.defaultXxx()` is called at render time when the stored value is 0. Non-zero values are stored directly from user input.
+
+**Rationale:** Avoids eagerly writing computed defaults to state on navigation (which would require watching wing geometry changes to keep tail defaults in sync). `convertDistance(0, from, to) = 0`, so unit conversions preserve the sentinel without special-casing.
+
+**Consequences:** Panel inputs always show the resolved effective value. There is no explicit "Reset to default" affordance — the user can type 0 to restore the sentinel, which will re-show the computed default.
+
+---
+
+## Development Status Update — 2026-06-21
+
+| Feature | Functional spec | Technical spec | Implementation | Status |
+|---------|----------------|----------------|----------------|--------|
+| Fuselage and Tail Definition | docs/functional/2026-06-21-fuselage-tail-definition.md | docs/technical/2026-06-21-fuselage-tail-definition.md | Chunk 1/2 + Chunk 2/2 complete | Complete |
+
+---
+
+## Scope evaluation — Fuselage and Tail Definition — 2026-06-21
+
+**Score:** Modules 3 + Endpoints 1 + Entities 2 + Integrations 2 + Criteria 3 = 11. Split into 2 chunks.
+
+**Chunk 1 (Foundations):** `FuselageAnalyser.js` + test (pure class); `WingPlanformLayer.vue` + test (shared wing SVG fragment, prop-driven); `useAppState.js` (6 new fields + unit conversion); `FuselageDefinitionPanel.vue` + test; `ParameterPanel.vue` + test additions (new nav entry). Precondition: existing codebase. Output: all foundations with ≥52 new tests passing. Covers spec Sections 2, 3, 4, 5.
+
+**Chunk 2 (SVG Diagram + URL Sync):** `FuselageDiagramChart.vue` + test; `WingDiagramChart.vue` refactored to use `WingPlanformLayer`; `SvgPanel.vue` + test additions; `App.vue` URL sync for 6 new fields + fuselage-definition in activePanel enum + `App.test.js` additions. Precondition: Chunk 1 complete. Output: full fuselage diagram visible; URL sync working; ≥26 new tests passing. Covers spec Sections 6, 7, 8, 9.
+
+---

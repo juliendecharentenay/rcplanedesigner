@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted, inject, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, inject } from 'vue'
 import * as d3 from 'd3'
 import { APP_STATE_KEY } from '../composables/useAppState'
 import { AIRFOILS_KEY } from '../composables/useAirfoils'
@@ -8,14 +8,30 @@ import { SET_ERROR_KEY } from '@/composables/useError.js'
 import { convertDistance, convertWingLoading, convertSpeed } from '@/units/units.js'
 import { AirfoilAnalyser } from '@/js/AirfoilAnalyser.js'
 import { WingAnalyser } from '@/js/WingAnalyser.js'
+import { atmosphere } from '@/js/atmosphere.js'
+import WingDragCurveChart from './WingDragCurveChart.vue'
+import WingPlanformLayer from './WingPlanformLayer.vue'
+
+const props = defineProps({
+  showDragCurve: { type: Boolean, default: false },
+})
+const emit = defineEmits(['update:showDragCurve'])
 
 const setError = inject(SET_ERROR_KEY)
 const { getState } = inject(APP_STATE_KEY)
 const { airfoils } = inject(AIRFOILS_KEY)
 const { system } = useUnits()
 
+// Local mirror so the toggle works immediately; propagates changes to parent for URL sync.
+const localShowDragCurve = ref(props.showDragCurve)
+watch(() => props.showDragCurve, v => { localShowDragCurve.value = v })
+
+function toggleDragCurve() {
+  localShowDragCurve.value = !localShowDragCurve.value
+  emit('update:showDragCurve', localShowDragCurve.value)
+}
+
 const containerEl = ref(null)
-const svgEl       = ref(null)
 const containerW  = ref(0)
 const containerH  = ref(0)
 let ro = null
@@ -30,19 +46,21 @@ onMounted(() => {
 
 onUnmounted(() => ro?.disconnect())
 
+// ── Geometry (SI) ─────────────────────────────────────────────────────────────
+
 const geometry = computed(() => {
   try {
-    const s     = getState()
-    const sys   = system.value
-    const span  = convertDistance(s.wingSpan,  sys, 'SI')
-    const rc    = convertDistance(s.rootChord, sys, 'SI')
-    const tc    = convertDistance(s.tipChord,  sys, 'SI')
-    const sweep = s.sweepAngle   // degrees
+    const s    = getState()
+    const sys  = system.value
+    const span = convertDistance(s.wingSpan,  sys, 'SI')
+    const rc   = convertDistance(s.rootChord, sys, 'SI')
+    const tc   = convertDistance(s.tipChord,  sys, 'SI')
+    const sweep = s.sweepAngle
     return { span, rc, tc, sweep }
   } catch (e) { setError(e); return { span: 0, rc: 0, tc: 0, sweep: 0 } }
 })
 
-// ── WingAnalyser instance (derived from geometry, all SI) ─────────────────────
+// ── WingAnalyser instance ─────────────────────────────────────────────────────
 
 const wingAnalyser = computed(() => {
   try {
@@ -51,257 +69,229 @@ const wingAnalyser = computed(() => {
   } catch (e) { setError(e); return null }
 })
 
+// ── SVG layout ────────────────────────────────────────────────────────────────
+
+const svgLayout = computed(() => {
+  try {
+    const { span, rc, tc, sweep } = geometry.value
+    const wa = wingAnalyser.value
+    if (!wa || span <= 0 || rc <= 0) return null
+
+    const xTipLE  = wa.xTipLE
+    const yMin    = Math.min(0, xTipLE)
+    const yMax    = Math.max(rc, xTipLE + tc)
+
+    const MARGIN_H = 40
+    const MARGIN_T = 65
+    const MARGIN_B = 40
+    const canvasW  = containerW.value
+    const canvasH  = containerH.value
+    if (canvasW === 0 || canvasH === 0) return null
+    const availW   = canvasW - 2 * MARGIN_H
+    const availH   = canvasH - MARGIN_T - MARGIN_B
+    const scale    = Math.min(availW / span, availH / (yMax - yMin))
+    const centreX  = canvasW / 2
+    const topY     = MARGIN_T + (availH - (yMax - yMin) * scale) / 2 - yMin * scale
+
+    return {
+      scale, centreX, topY,
+      canvasW, canvasH,
+      halfSpan:             span / 2,
+      rootChord:            rc,
+      tipChord:             tc,
+      xTipLE,
+      mac:                  wa.mac,
+      macSpanPosition:      wa.macSpanPosition,
+      macLeadingEdgeOffset: wa.macLeadingEdgeOffset,
+      wingTopY:             topY + yMin * scale,
+      wingBottomY:          topY + yMax * scale,
+    }
+  } catch (e) { setError(e); return null }
+})
+
+// ── Performance data ──────────────────────────────────────────────────────────
+
 function fmtAoa(val) {
   if (val == null || !isFinite(val)) return '—'
   return val.toFixed(1) + '°'
 }
 
-// ── Performance data computed ─────────────────────────────────────────────────
+function fmtCd(val) {
+  if (val == null || !isFinite(val)) return '—'
+  return val.toFixed(3)
+}
+
 const performanceData = computed(() => {
   const nullResult = {
     cruiseAoaInfinite: null, cruiseAoaWing: null,
     landingAoaInfinite: null, landingAoaWing: null,
+    baseCdCruise: null, inducedCdWing: null, totalCdWing: null,
   }
   try {
     const s = getState()
-
-    // 1. Look up the analyser for the selected airfoil
     const analyser = airfoils.find(a => a.profileName === s.airfoilProfile) ?? null
     if (!analyser) return nullResult
 
-    // 2. Convert state to SI
-    const wl  = convertWingLoading(s.wingLoading,   s.units, 'SI')  // g/dm²
-    const spd = convertSpeed(s.cruisingSpeed,        s.units, 'SI')  // m/s
-    const alt = convertDistance(s.siteAltitude,      s.units, 'SI')  // m
+    const wl  = convertWingLoading(s.wingLoading,   s.units, 'SI')
+    const spd = convertSpeed(s.cruisingSpeed,        s.units, 'SI')
+    const alt = convertDistance(s.siteAltitude,      s.units, 'SI')
 
-    // 3. Cruise (Infinite AR)
     const cruiseCl = AirfoilAnalyser.convertSpeedToCl(wl, spd, alt)
-    const { cruiseAoa: cruiseAoaInfinite, cruiseCl: resolvedCruiseCl } =
+    const { cruiseAoa: cruiseAoaInfinite, cruiseCl: resolvedCruiseCl, cruiseCd } =
       analyser.getCruiseConditions(cruiseCl)
 
-    // 4. Landing (Infinite AR) — pre-computed on the analyser instance
     const landingAoaInfinite = analyser.landingAoa
     const landingCl          = analyser.landingCl
 
-    // 5. Wing corrections via WingAnalyser
     const wa = wingAnalyser.value
     if (wa == null) throw new Error(`Wing analyser is null`)
     const cruiseAoaWing  = wa.cruiseAoaWing(cruiseAoaInfinite, resolvedCruiseCl) ?? null
     const landingAoaWing = wa.landingAoaWing(landingAoaInfinite, landingCl)      ?? null
 
-    return { cruiseAoaInfinite, cruiseAoaWing, landingAoaInfinite, landingAoaWing }
+    const baseCdCruise  = cruiseCd ?? null
+    const inducedCdWing = (baseCdCruise != null && resolvedCruiseCl != null)
+      ? (wa.inducedCd(resolvedCruiseCl) ?? null)
+      : null
+    const totalCdWing   = (baseCdCruise != null && inducedCdWing != null)
+      ? baseCdCruise + inducedCdWing
+      : null
+
+    return {
+      cruiseAoaInfinite, cruiseAoaWing, landingAoaInfinite, landingAoaWing,
+      baseCdCruise, inducedCdWing, totalCdWing,
+    }
   } catch (e) { setError(e); return nullResult }
 })
 
-watch(
-  [geometry, containerW, containerH],
-  () => {
-    if (!svgEl.value || containerW.value === 0) return
-    draw()
-  },
-  { flush: 'post', immediate: true },
-)
+// ── Drag curve state ──────────────────────────────────────────────────────────
 
-function draw() {
+const dragCurveAvailable = computed(() => {
   try {
-    const { span, rc, tc, sweep } = geometry.value
-    const svg = d3.select(svgEl.value)
-    svg.selectAll('*').remove()
-
-    if (span <= 0 || rc <= 0) {
-      svg.attr('width', containerW.value).attr('height', containerH.value)
-      return
-    }
-
+    const s = getState()
+    const analyser = airfoils.find(a => a.profileName === s.airfoilProfile) ?? null
     const wa = wingAnalyser.value
-    if (wa == null) throw new Error(`Wing analyser is null`)
-    const halfSpan = span / 2
-    const xTipLE   = wa.xTipLE
-    const λ        = wa.taperRatio
+    if (!analyser || !wa) return false
+    const wl  = convertWingLoading(s.wingLoading,  s.units, 'SI')
+    const alt = convertDistance(s.siteAltitude,    s.units, 'SI')
+    const stallSpeed = analyser.getStallSpeed(wl, alt)
+    return stallSpeed != null && stallSpeed > 0
+  } catch { return false }
+})
 
-    const yMin = Math.min(0, xTipLE)
-    const yMax = Math.max(rc, xTipLE + tc)
+const N_CURVE_POINTS = 100
 
-    const MARGIN_H = 40
-    const MARGIN_T = 65   // extra headroom for wing-span dimension line + label
-    const MARGIN_B = 40
-    const canvasW  = containerW.value
-    const canvasH  = containerH.value
-    const availW   = canvasW - 2 * MARGIN_H
-    const availH   = canvasH - MARGIN_T - MARGIN_B
-    const scale    = Math.min(availW / span, availH / (yMax - yMin))
+const dragCurveData = computed(() => {
+  const nullResult = { points: [], stallSpeedSI: null, cruiseSpeedSI: null, minDragSpeedSI: null }
+  if (!dragCurveAvailable.value) return nullResult
+  try {
+    const s = getState()
+    const analyser = airfoils.find(a => a.profileName === s.airfoilProfile)
+    const wa = wingAnalyser.value
+    const wl  = convertWingLoading(s.wingLoading,  s.units, 'SI')
+    const alt = convertDistance(s.siteAltitude,    s.units, 'SI')
+    const cruiseSpeedSI = convertSpeed(s.cruisingSpeed, s.units, 'SI')
+    const stallSpeedSI  = analyser.getStallSpeed(wl, alt)
 
-    const centreX = canvasW / 2
-    const topY    = MARGIN_T + (availH - (yMax - yMin) * scale) / 2 - yMin * scale
+    const wingAreaSI = wa.wingArea
+    if (wingAreaSI == null || wingAreaSI <= 0) return nullResult
 
-    const toSvg = (px, py) => [centreX + px * scale, topY + py * scale]
+    const { density: rho } = atmosphere(alt)
 
-    svg.attr('width', canvasW).attr('height', canvasH)
+    const vMax = Math.max(cruiseSpeedSI * 2, stallSpeedSI * 4)
+    const step = (vMax - stallSpeedSI) / (N_CURVE_POINTS - 1)
 
-    // Arrow marker defs (used by dimension lines)
-    const defs = svg.append('defs')
-    const mkArrow = (id, orient, refX) =>
-      defs.append('marker')
-        .attr('id', id)
-        .attr('viewBox', '0 -4 8 8')
-        .attr('refX', refX).attr('refY', 0)
-        .attr('markerWidth', 5).attr('markerHeight', 5)
-        .attr('orient', orient)
-        .append('path').attr('d', 'M0,-4 L8,0 L0,4').attr('fill', '#64748b')
-    mkArrow('arr-end',   'auto',               8)
-    mkArrow('arr-start', 'auto-start-reverse', 0)
-
-    const DIM   = '#64748b'
-    const DFONT = 10
-
-    // Topmost / bottommost y of wing in SVG space
-    const wingTopY    = topY + yMin * scale
-    const wingBottomY = topY + yMax * scale
-
-    // ── Centreline (light dashed) ──────────────────────────────────────────
-    svg.append('line')
-      .attr('x1', centreX).attr('y1', wingTopY - 15)
-      .attr('x2', centreX).attr('y2', wingBottomY + 15)
-      .attr('stroke', '#cbd5e1').attr('stroke-width', 1)
-      .attr('stroke-dasharray', '6 3')
-
-    // ── Wing outline (blue) ───────────────────────────────────────────────
-    const outline = [
-      toSvg(0,         0),
-      toSvg(-halfSpan, xTipLE),
-      toSvg(-halfSpan, xTipLE + tc),
-      toSvg(0,         rc),
-      toSvg(halfSpan,  xTipLE + tc),
-      toSvg(halfSpan,  xTipLE),
-    ]
-    svg.append('polygon')
-      .attr('points', outline.map(p => p.join(',')).join(' '))
-      .attr('fill', '#dbeafe')
-      .attr('stroke', '#2563eb')
-      .attr('stroke-width', 1.5)
-      .attr('stroke-linejoin', 'round')
-
-    // ── Quarter-chord lines (red) ─────────────────────────────────────────
-    const qcRoot  = toSvg(0,         0.25 * rc)
-    const qcLeft  = toSvg(-halfSpan, xTipLE + 0.25 * tc)
-    const qcRight = toSvg(halfSpan,  xTipLE + 0.25 * tc)
-
-    for (const qcTip of [qcLeft, qcRight]) {
-      svg.append('line')
-        .attr('x1', qcRoot[0]).attr('y1', qcRoot[1])
-        .attr('x2', qcTip[0]).attr('y2', qcTip[1])
-        .attr('stroke', '#dc2626').attr('stroke-width', 1.2)
+    const points = []
+    for (let i = 0; i < N_CURVE_POINTS; i++) {
+      const v  = stallSpeedSI + i * step
+      const cl = AirfoilAnalyser.convertSpeedToCl(wl, v, alt)
+      if (cl == null || cl <= 0) continue
+      const { cruiseAoa, cruiseCd } = analyser.getCruiseConditions(cl)
+      if (cruiseAoa == null || cruiseCd == null) continue
+      const induced = wa.inducedCd(cl)
+      if (induced == null) continue
+      const q           = 0.5 * rho * v * v
+      const baseDrag    = q * wingAreaSI * cruiseCd
+      const inducedDrag = q * wingAreaSI * induced
+      points.push({ v, baseDrag, inducedDrag, totalDrag: baseDrag + inducedDrag })
     }
 
-    // Quarter-chord label — offset toward LE, aligned along the right-side line
-    const qcT  = 0.6   // 60 % from root toward right tip
-    const qcLx = qcRoot[0] + qcT * (qcRight[0] - qcRoot[0])
-    const qcLy = qcRoot[1] + qcT * (qcRight[1] - qcRoot[1])
-    const qcDx = qcRight[0] - qcRoot[0]
-    const qcDy = qcRight[1] - qcRoot[1]
-    const qcLen = Math.sqrt(qcDx * qcDx + qcDy * qcDy)
-    // CW perpendicular of line direction points toward leading edge in SVG
-    const qcOx =  qcDy / qcLen * 12
-    const qcOy = -qcDx / qcLen * 12
-    const qcAngle = Math.atan2(qcDy, qcDx) * 180 / Math.PI
-    svg.append('text')
-      .attr('x', qcLx + qcOx).attr('y', qcLy + qcOy)
-      .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-      .attr('font-size', DFONT).attr('fill', '#dc2626')
-      .attr('transform', `rotate(${qcAngle},${qcLx + qcOx},${qcLy + qcOy})`)
-      .text('¼ chord')
+    if (points.length < 2) return nullResult
 
-    // ── MAC (grey dashed, right side) ─────────────────────────────────────
-    const mac     = wa.mac
-    const yMac    = wa.macSpanPosition
-    const xMacLE  = wa.macLeadingEdgeOffset
+    let minIdx = 0
+    for (let i = 1; i < points.length; i++) {
+      if (points[i].totalDrag < points[minIdx].totalDrag) minIdx = i
+    }
 
-    const macStart = toSvg(yMac, xMacLE)
-    const macEnd   = toSvg(yMac, xMacLE + mac)
-
-    svg.append('line')
-      .attr('x1', macStart[0]).attr('y1', macStart[1])
-      .attr('x2', macEnd[0]).attr('y2', macEnd[1])
-      .attr('stroke', '#94a3b8').attr('stroke-width', 1.2)
-      .attr('stroke-dasharray', '5 3')
-
-    // MAC label — to the right of the line midpoint
-    svg.append('text')
-      .attr('x', macStart[0] + 8)
-      .attr('y', (macStart[1] + macEnd[1]) / 2)
-      .attr('text-anchor', 'start').attr('dominant-baseline', 'middle')
-      .attr('font-size', DFONT).attr('fill', '#94a3b8')
-      .text('MAC')
-
-    // ── Quarter-MAC marker (quartered circle) ─────────────────────────────
-    const [qmX, qmY] = toSvg(yMac, xMacLE + 0.25 * mac)
-    const qmR = 6
-
-    ;[0, 1, 2, 3].forEach(q => {
-      const a0 = (q * Math.PI) / 2
-      const a1 = a0 + Math.PI / 2
-      svg.append('path')
-        .attr('d', `M0,0 L${qmR * Math.cos(a0)},${qmR * Math.sin(a0)} A${qmR},${qmR} 0 0,1 ${qmR * Math.cos(a1)},${qmR * Math.sin(a1)} Z`)
-        .attr('transform', `translate(${qmX},${qmY})`)
-        .attr('fill', q % 2 === 0 ? '#1e293b' : 'transparent')
-    })
-    svg.append('circle')
-      .attr('cx', qmX).attr('cy', qmY).attr('r', qmR)
-      .attr('fill', 'none').attr('stroke', '#1e293b').attr('stroke-width', 1)
-
-    // Quarter-MAC label
-    svg.append('text')
-      .attr('x', qmX + qmR + 5).attr('y', qmY)
-      .attr('text-anchor', 'start').attr('dominant-baseline', 'middle')
-      .attr('font-size', DFONT).attr('fill', '#1e293b')
-      .text('¼ MAC')
-
-    // ── Wing-span dimension line (above wing) ─────────────────────────────
-    // x of tips is purely a function of the spanwise coordinate
-    const leftTipX  = centreX - halfSpan * scale
-    const rightTipX = centreX + halfSpan * scale
-    const spanLineY  = wingTopY - 30
-
-    svg.append('line')
-      .attr('x1', leftTipX).attr('y1', spanLineY)
-      .attr('x2', rightTipX).attr('y2', spanLineY)
-      .attr('stroke', DIM).attr('stroke-width', 1)
-      .attr('marker-start', 'url(#arr-start)')
-      .attr('marker-end',   'url(#arr-end)')
-
-    svg.append('text')
-      .attr('x', centreX).attr('y', spanLineY - 8)
-      .attr('text-anchor', 'middle').attr('font-size', DFONT).attr('fill', DIM)
-      .text('Wing Span')
-
-    // ── Root-chord dimension line (at centreline, vertical, with arrows) ──
-    const rcTopSvg = toSvg(0, 0)[1]    // root LE y
-    const rcBotSvg = toSvg(0, rc)[1]   // root TE y
-
-    svg.append('line')
-      .attr('x1', centreX).attr('y1', rcTopSvg+5)
-      .attr('x2', centreX).attr('y2', rcBotSvg)
-      .attr('stroke', DIM).attr('stroke-width', 1.5)
-      .attr('marker-start', 'url(#arr-start)')
-      .attr('marker-end',   'url(#arr-end)')
-
-    // Label to the left of the centreline, rotated so it reads bottom-to-top
-    const rcMidY   = (rcTopSvg + rcBotSvg) / 2
-    const rcLabelX = centreX - 15
-    svg.append('text')
-      .attr('x', rcLabelX).attr('y', rcMidY)
-      .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-      .attr('font-size', DFONT).attr('fill', DIM)
-      .attr('transform', `rotate(-90,${rcLabelX},${rcMidY})`)
-      .text('Root Chord')
-
-  } catch (e) { setError(e); return }
-}
+    return { points, stallSpeedSI, cruiseSpeedSI, minDragSpeedSI: points[minIdx].v }
+  } catch (e) { setError(e); return nullResult }
+})
 </script>
 
 <template>
   <div ref="containerEl" class="relative w-full h-full">
-    <svg ref="svgEl" class="block w-full h-full" />
+    <!-- SVG wing diagram (reactive, no D3 draw loop) -->
+    <svg
+      v-show="!localShowDragCurve"
+      class="block w-full h-full"
+      :width="containerW"
+      :height="containerH"
+    >
+      <template v-if="svgLayout">
+        <!-- Arrow marker defs -->
+        <defs>
+          <marker id="arr-end"   viewBox="0 -4 8 8" refX="8" refY="0" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0,-4 L8,0 L0,4" fill="#64748b" />
+          </marker>
+          <marker id="arr-start" viewBox="0 -4 8 8" refX="0" refY="0" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,-4 L8,0 L0,4" fill="#64748b" />
+          </marker>
+        </defs>
+
+        <!-- Centreline -->
+        <line
+          :x1="svgLayout.centreX" :y1="svgLayout.wingTopY - 15"
+          :x2="svgLayout.centreX" :y2="svgLayout.wingBottomY + 15"
+          stroke="#cbd5e1" stroke-width="1" stroke-dasharray="6 3"
+        />
+
+        <!-- Wing planform (delegated to shared component) -->
+        <WingPlanformLayer
+          :centre-x="svgLayout.centreX"
+          :top-y="svgLayout.topY"
+          :scale="svgLayout.scale"
+          :half-span="svgLayout.halfSpan"
+          :root-chord="svgLayout.rootChord"
+          :tip-chord="svgLayout.tipChord"
+          :x-tip-l-e="svgLayout.xTipLE"
+          :mac="svgLayout.mac"
+          :mac-span-position="svgLayout.macSpanPosition"
+          :mac-leading-edge-offset="svgLayout.macLeadingEdgeOffset"
+          :show-mac="true"
+          :show-quarter-chord="true"
+          :show-dimensions="true"
+        />
+      </template>
+    </svg>
+
+    <!-- Drag curve chart -->
+    <WingDragCurveChart
+      v-if="localShowDragCurve"
+      class="absolute inset-0"
+      :points="dragCurveData.points"
+      :cruise-speed-s-i="dragCurveData.cruiseSpeedSI"
+      :min-drag-speed-s-i="dragCurveData.minDragSpeedSI"
+      :stall-speed-s-i="dragCurveData.stallSpeedSI"
+      :system="system"
+    />
+
+    <!-- Toggle button — hidden when curve data is unavailable -->
+    <button
+      v-if="dragCurveData.points.length >= 2"
+      class="absolute bottom-2 left-2 text-xs font-medium px-2 py-1 rounded border border-slate-300 bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-slate-50"
+      @click="toggleDragCurve"
+    >
+      {{ localShowDragCurve ? 'Show planform' : 'Show drag curve' }}
+    </button>
 
     <!-- Performance table overlay — top-right corner -->
     <div class="absolute top-0 right-0 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-bl-md text-xs">
@@ -323,6 +313,21 @@ function draw() {
             <td class="px-2 py-1 text-slate-600">Landing AoA</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaInfinite) }}</td>
             <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtAoa(performanceData.landingAoaWing) }}</td>
+          </tr>
+          <tr class="table-row-banded">
+            <td class="px-2 py-1 text-slate-600">Cruise base Cd</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtCd(performanceData.baseCdCruise) }}</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtCd(performanceData.baseCdCruise) }}</td>
+          </tr>
+          <tr class="table-row-banded">
+            <td class="px-2 py-1 text-slate-600">Cruise induced Cd</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">0.000</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtCd(performanceData.inducedCdWing) }}</td>
+          </tr>
+          <tr class="table-row-banded">
+            <td class="px-2 py-1 text-slate-600">Cruise total Cd</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtCd(performanceData.baseCdCruise) }}</td>
+            <td class="px-2 py-1 text-center font-mono text-slate-800">{{ fmtCd(performanceData.totalCdWing) }}</td>
           </tr>
         </tbody>
       </table>

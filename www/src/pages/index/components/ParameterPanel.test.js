@@ -34,6 +34,14 @@ vi.mock('./WingDefinitionPanel.vue', () => ({
   },
 }))
 
+// Stub FuselageDefinitionPanel to avoid its dependencies in ParameterPanel tests
+vi.mock('./ParameterPanel/FuselageDefinitionPanel.vue', () => ({
+  default: {
+    name: 'FuselageDefinitionPanel',
+    template: '<div data-testid="fuselage-definition-panel">FuselageDefinitionPanel stub</div>',
+  },
+}))
+
 function makeFocusedParamProvide() {
   return {
     focusedKey: ref(null),
@@ -288,5 +296,44 @@ describe('ParameterPanel', () => {
     expect(wrapper.findComponent({name: "WingDefinitionPanel"}).exists()).toBe(true)
     // General panel should not be present
     expect(wrapper.findComponent({name: "GeneralPanel"}).exists()).toBe(false)
+  })
+
+  // ── Fuselage & Tail navigation ──────────────────────────────────────────────
+
+  it('dropdown contains "Fuselage & Tail" item', async () => {
+    const wrapper = mountPanel()
+    await wrapper.find('div.cursor-pointer').trigger('click')
+    expect(wrapper.text()).toContain('Fuselage')
+  })
+
+  it('"Fuselage & Tail" item is disabled when wingSpan is 0', async () => {
+    const wrapper = mountPanel({ wingSpan: 0, rootChord: 0 })
+    await wrapper.find('div.cursor-pointer').trigger('click')
+    const buttons = wrapper.findAll('[data-testid="panel-dropdown"] button')
+    const fuselageBtn = buttons.find(b => b.text().includes('Fuselage'))
+    expect(fuselageBtn.attributes('disabled')).toBeDefined()
+  })
+
+  it('"Fuselage & Tail" item is enabled when wingSpan > 0 and rootChord > 0', async () => {
+    const wrapper = mountPanel({ wingSpan: 1.5, rootChord: 0.3 })
+    await wrapper.find('div.cursor-pointer').trigger('click')
+    const buttons = wrapper.findAll('[data-testid="panel-dropdown"] button')
+    const fuselageBtn = buttons.find(b => b.text().includes('Fuselage'))
+    expect(fuselageBtn.attributes('disabled')).toBeUndefined()
+  })
+
+  it('clicking "Fuselage & Tail" emits navigate with "fuselage-definition"', async () => {
+    const wrapper = mountPanel({ wingSpan: 1.5, rootChord: 0.3 })
+    await wrapper.find('div.cursor-pointer').trigger('click')
+    const buttons = wrapper.findAll('[data-testid="panel-dropdown"] button')
+    const fuselageBtn = buttons.find(b => b.text().includes('Fuselage'))
+    await fuselageBtn.trigger('click')
+    expect(wrapper.emitted('navigate')).toBeTruthy()
+    expect(wrapper.emitted('navigate')[0]).toEqual(['fuselage-definition'])
+  })
+
+  it('activePanel="fuselage-definition" renders FuselageDefinitionPanel', () => {
+    const wrapper = mountPanel({ wingSpan: 1.5, rootChord: 0.3 }, { activePanel: 'fuselage-definition' })
+    expect(wrapper.find('[data-testid="fuselage-definition-panel"]').exists()).toBe(true)
   })
 })

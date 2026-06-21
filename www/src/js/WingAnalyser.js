@@ -75,6 +75,12 @@ export class WingAnalyser {
     return (cl / (Math.PI * ar * OSWALD_E)) * (180 / Math.PI)
   }
 
+  inducedCd(cl) {
+    const ar = this.aspectRatio
+    if (cl == null || ar == null || ar <= 0) return null
+    return (cl * cl) / (Math.PI * OSWALD_E * ar)
+  }
+
   cruiseAoaWing(cruiseAoaInfinite, cruiseCl) {
     if (cruiseAoaInfinite == null || cruiseCl == null) return null
     const induced = this.inducedAoaDeg(cruiseCl)

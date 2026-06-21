@@ -220,4 +220,28 @@ describe('WingAnalyser', () => {
     expect(wa.landingAoaWing(null, 0.9)).toBeNull()
   })
 
+  // ── inducedCd ────────────────────────────────────────────────────────────────
+
+  it('T31: inducedCd with cl=1.0, AR≈6.667 (span=10,root=2,tip=1) → 1/(π×0.85×AR)', () => {
+    const wa = new WingAnalyser({ wingSpan: 10, rootChord: 2, tipChord: 1, sweepAngle: 0 })
+    const ar = 100 / 15
+    const expected = (1.0 * 1.0) / (Math.PI * 0.85 * ar)
+    expect(wa.inducedCd(1.0)).toBeCloseTo(expected, 8)
+  })
+
+  it('T32: inducedCd returns 0 when cl = 0', () => {
+    const wa = new WingAnalyser({ wingSpan: 10, rootChord: 2, tipChord: 1, sweepAngle: 0 })
+    expect(wa.inducedCd(0)).toBe(0)
+  })
+
+  it('T33: inducedCd returns null when AR is null (rootChord=0)', () => {
+    const wa = new WingAnalyser({ wingSpan: 10, rootChord: 0, tipChord: 1, sweepAngle: 0 })
+    expect(wa.inducedCd(1.0)).toBeNull()
+  })
+
+  it('T34: inducedCd returns null when cl is null', () => {
+    const wa = new WingAnalyser({ wingSpan: 10, rootChord: 2, tipChord: 1, sweepAngle: 0 })
+    expect(wa.inducedCd(null)).toBeNull()
+  })
+
 })

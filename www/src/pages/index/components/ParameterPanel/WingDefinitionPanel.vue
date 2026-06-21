@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
-import { APP_STATE_KEY } from '../../composables/useAppState'
+import { APP_STATE_KEY, PLANE_TYPES_KEY, } from '../../composables/useAppState'
 import { useUnits } from '../../composables/useUnits'
 import { SET_ERROR_KEY } from '@/composables/useError.js'
 import { FOCUSED_PARAM_KEY } from '../../composables/useFocusedParam.js'
@@ -21,17 +21,27 @@ const wingSpanBody = computed(() =>
 )
 register('wingSpan', { title: 'Wing Span', body: wingSpanBody })
 
+const aspectRatioRecommendation = computed(() => {
+  console.log(getState().planeType);
+  switch (getState().planeType) {
+    case PLANE_TYPES_KEY.TRAINER: return ' Aspect ratio for Trainer should range between 8 to 10.';
+    case PLANE_TYPES_KEY.GLIDER: return ' Aspect ratio for Glider should range between 8 to 10 (slope) and 10 to 15 (thermal).';
+    case PLANE_TYPES_KEY.ACROBATIC: return ' Aspect ratio for Acrobatic should range between 4 to 6 (high speed) and 6 to 8 (moderate speed).';
+    default: return '';
+  }
+})
+
 const rootChordBody = computed(() =>
   system.value === 'Imperial'
-    ? 'The chord length at the wing root (centreline), in feet. A larger root chord increases lift and structural strength at the fuselage junction.'
-    : 'The chord length at the wing root (centreline), in metres. A larger root chord increases lift and structural strength at the fuselage junction.'
+    ? 'The chord length at the wing root (centreline), in feet. A larger root chord increases lift and structural strength at the fuselage junction.' + aspectRatioRecommendation.value
+    : 'The chord length at the wing root (centreline), in metres. A larger root chord increases lift and structural strength at the fuselage junction.' + aspectRatioRecommendation.value
 )
 register('rootChord', { title: 'Root Chord', body: rootChordBody })
 
 const tipChordBody = computed(() =>
   system.value === 'Imperial'
-    ? 'The chord length at the wing tip, in feet. Reducing the tip chord relative to the root (taper) improves efficiency by moving lift distribution toward elliptical.'
-    : 'The chord length at the wing tip, in metres. Reducing the tip chord relative to the root (taper) improves efficiency by moving lift distribution toward elliptical.'
+    ? 'The chord length at the wing tip, in feet. Reducing the tip chord relative to the root (taper) improves efficiency by moving lift distribution toward elliptical.' + aspectRatioRecommendation.value
+    : 'The chord length at the wing tip, in metres. Reducing the tip chord relative to the root (taper) improves efficiency by moving lift distribution toward elliptical.' + aspectRatioRecommendation.value
 )
 register('tipChord', { title: 'Tip Chord', body: tipChordBody })
 

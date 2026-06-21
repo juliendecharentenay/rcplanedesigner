@@ -3,10 +3,15 @@ import { convertDistance, convertWingLoading, convertSpeed } from '@/units/units
 
 export const APP_STATE_KEY = Symbol('appState')
 
+export const PLANE_TYPES_KEY = {
+  TRAINER: 'Trainer',
+  GLIDER: 'Glider',
+  ACROBATIC: 'Acrobatic',
+}
 export const PLANE_TYPES = [
-  { value: 'Trainer',   label: 'Trainer' },
-  { value: 'Glider',    label: 'Glider' },
-  { value: 'Acrobatic', label: 'Acrobatic' },
+  { value: PLANE_TYPES_KEY.TRAINER,   label: 'Trainer' },
+  { value: PLANE_TYPES_KEY.GLIDER,    label: 'Glider' },
+  { value: PLANE_TYPES_KEY.ACROBATIC, label: 'Acrobatic' },
 ]
 
 export const STATE_DEFAULTS = {
@@ -14,12 +19,19 @@ export const STATE_DEFAULTS = {
     siteAltitude:   0,         // metres (SI) or feet (Imperial)
     wingLoading:    45,        // g/sq.dm (SI) or oz/sq.ft (Imperial)
     cruisingSpeed:  15,        // m/s (SI) or mph (Imperial)
-    planeType:      'Trainer', // 'Trainer' | 'Glider' | 'Acrobatic'
+    planeType:      PLANE_TYPES_KEY.TRAINER, // 'Trainer' | 'Glider' | 'Acrobatic'
     airfoilProfile: null,      // profileName string or null (no selection)
     wingSpan:       1.5,       // metres (SI) or feet (Imperial)
     rootChord:      0.3,       // metres (SI) or feet (Imperial)
     tipChord:       0.2,       // metres (SI) or feet (Imperial)
     sweepAngle:     0,         // degrees (no unit conversion)
+    // ── Fuselage & Tail ──────────────────────────────────────────────────────
+    fuselageWidth:  0.12,      // metres (SI) or feet (Imperial); width at wing station
+    frontFuselage:  0,         // metres (SI) or feet (Imperial); 0 = use 2×MAC default
+    rearFuselage:   0,         // metres (SI) or feet (Imperial); 0 = use 3×MAC default
+    tailSpan:       0,         // metres (SI) or feet (Imperial); 0 = use computed default
+    tailChord:      0,         // metres (SI) or feet (Imperial); 0 = use computed default
+    tailAirfoil:    'E168  (12.45%)',  // profileName string
 }
 
 /**
@@ -60,9 +72,15 @@ export function useAppState(onError) {
         next.siteAltitude = convertDistance(state.value.siteAltitude, state.value.units, partial.units)
         next.wingLoading   = convertWingLoading(state.value.wingLoading, state.value.units, partial.units)
         next.cruisingSpeed = convertSpeed(state.value.cruisingSpeed, state.value.units, partial.units)
-        next.wingSpan      = convertDistance(state.value.wingSpan,   state.value.units, partial.units)
-        next.rootChord     = convertDistance(state.value.rootChord,  state.value.units, partial.units)
-        next.tipChord      = convertDistance(state.value.tipChord,   state.value.units, partial.units)
+        next.wingSpan      = convertDistance(state.value.wingSpan,      state.value.units, partial.units)
+        next.rootChord     = convertDistance(state.value.rootChord,     state.value.units, partial.units)
+        next.tipChord      = convertDistance(state.value.tipChord,      state.value.units, partial.units)
+        // Fuselage & tail — convertDistance(0, …) = 0, preserving the "use default" sentinel
+        next.fuselageWidth = convertDistance(state.value.fuselageWidth, state.value.units, partial.units)
+        next.frontFuselage = convertDistance(state.value.frontFuselage, state.value.units, partial.units)
+        next.rearFuselage  = convertDistance(state.value.rearFuselage,  state.value.units, partial.units)
+        next.tailSpan      = convertDistance(state.value.tailSpan,      state.value.units, partial.units)
+        next.tailChord     = convertDistance(state.value.tailChord,     state.value.units, partial.units)
       }
       state.value = next
     } catch (err) {

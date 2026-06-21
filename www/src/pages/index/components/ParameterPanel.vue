@@ -4,6 +4,7 @@ import { APP_STATE_KEY, } from '../composables/useAppState'
 import { FOCUSED_PARAM_KEY } from '../composables/useFocusedParam'
 import GeneralPanel from './ParameterPanel/GeneralPanel.vue'
 import WingDefinitionPanel from './ParameterPanel/WingDefinitionPanel.vue'
+import FuselageDefinitionPanel from './ParameterPanel/FuselageDefinitionPanel.vue'
 import {
   ArrowTopRightOnSquareIcon,
   } from '@heroicons/vue/24/outline'
@@ -28,8 +29,14 @@ const canNavigateToWing = computed(() => {
   return s.airfoilProfile !== null && s.wingLoading > 0 && s.cruisingSpeed > 0
 })
 
+const canNavigateToFuselage = computed(() => {
+  const s = getState()
+  return s.wingSpan > 0 && s.rootChord > 0
+})
+
 function navigateTo(panel) {
   if (!canNavigateToWing.value && panel === 'wing-definition') return
+  if (!canNavigateToFuselage.value && panel === 'fuselage-definition') return
   emit('navigate', panel)
   closeDropdown()
 }
@@ -66,7 +73,7 @@ function onPanelFocusOut(e) {
         <path d="M2 4h12M2 8h8M2 12h10" stroke-linecap="round" />
       </svg>
       <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-        {{ props.activePanel === 'general' ? 'General' : 'Wing Definition' }}
+        {{ props.activePanel === 'general' ? 'General' : props.activePanel === 'wing-definition' ? 'Wing Definition' : 'Fuselage &amp; Tail' }}
       </span>
       <svg class="ml-auto w-3 h-3 text-slate-400" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M2 4l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
@@ -93,6 +100,14 @@ function onPanelFocusOut(e) {
       >
         Wing Definition
       </button>
+      <button
+        class="w-full text-left px-4 py-2 text-sm"
+        :class="canNavigateToFuselage ? 'hover:bg-slate-50' : 'text-slate-400 cursor-default'"
+        :disabled="!canNavigateToFuselage"
+        @click="navigateTo('fuselage-definition')"
+      >
+        Fuselage &amp; Tail
+      </button>
     </div>
 
     <!-- General panel body -->
@@ -101,6 +116,9 @@ function onPanelFocusOut(e) {
 
     <!-- Wing Definition panel body -->
     <WingDefinitionPanel v-else-if="props.activePanel === 'wing-definition'" @navigate="emit('navigate', $event)" />
+
+    <!-- Fuselage & Tail panel body -->
+    <FuselageDefinitionPanel v-else-if="props.activePanel === 'fuselage-definition'" @navigate="emit('navigate', $event)" />
 
     <!-- else -->
     <div v-else>

@@ -104,3 +104,16 @@ export function convertArea(value, fromSystem, toSystem) {
   if (fromSystem === toSystem) return value
   return fromSystem === 'SI' ? value * SQM_TO_SQFT : value / SQM_TO_SQFT
 }
+
+// — Force —
+// 1 lbf = 4.44822 N
+const N_TO_LBF = 1 / 4.44822
+
+export function getForceUnit(system) {
+  return system === 'Imperial' ? 'lbf' : 'N'
+}
+
+export function convertForce(value, fromSystem, toSystem) {
+  if (fromSystem === toSystem) return value
+  return fromSystem === 'SI' ? value * N_TO_LBF : value / N_TO_LBF
+}

@@ -14,6 +14,8 @@ import ActionPanel from './components/ActionPanel.vue'
 const URL_DEFAULTS = {
   ...STATE_DEFAULTS,
   activePanel:    'general',
+  showDragCurve:  false,
+  // Fuselage & tail fields are inherited from STATE_DEFAULTS via spread above
 }
 
 const { error, setError, clearError } = useError()
@@ -27,7 +29,8 @@ provide(FOCUSED_PARAM_KEY, useFocusedParam())
 const airfoils = useAirfoils()
 provide(AIRFOILS_KEY, airfoils)
 
-const activePanel = ref('general')  // 'general' | 'wing-definition'
+const activePanel    = ref('general')  // 'general' | 'wing-definition'
+const showDragCurve = ref(false)
 
 onMounted(() => {
   try {
@@ -67,22 +70,38 @@ onMounted(() => {
 
     // 5. activePanel enum
     const panelParam = params.get('panel')
-    const newActivePanel = ['general', 'wing-definition'].includes(panelParam)
+    const newActivePanel = ['general', 'wing-definition', 'fuselage-definition'].includes(panelParam)
       ? panelParam
       : URL_DEFAULTS.activePanel
 
-    // 6. set units first so conversion of existing defaults fires, then set parsed values
+    // 6. showDragCurve — present as view=drag
+    const newShowDragCurve = params.get('view') === 'drag'
+
+    // 7. fuselage & tail fields
+    const fuselageWidth = parseNum('fw',  0.01, 5,   URL_DEFAULTS.fuselageWidth)
+    const frontFuselage = parseNum('ff',  0,    20,  URL_DEFAULTS.frontFuselage)
+    const rearFuselage  = parseNum('rf',  0,    30,  URL_DEFAULTS.rearFuselage)
+    const tailSpan      = parseNum('ts',  0,    10,  URL_DEFAULTS.tailSpan)
+    const tailChord     = parseNum('tch', 0,    5,   URL_DEFAULTS.tailChord)
+    const tailAirfoilParam = params.get('tfoil')
+    const tailAirfoil = tailAirfoilParam !== null && airfoils.airfoils.some(a => a.profileName === tailAirfoilParam)
+      ? tailAirfoilParam
+      : URL_DEFAULTS.tailAirfoil
+
+    // 8. set units first so conversion of existing defaults fires, then set parsed values
     //    (which are already in the target unit system) in a second call
     setState({ units })
     setState({ siteAltitude, wingLoading, cruisingSpeed, planeType, airfoilProfile,
-               wingSpan, rootChord, tipChord, sweepAngle })
-    activePanel.value = newActivePanel
+               wingSpan, rootChord, tipChord, sweepAngle,
+               fuselageWidth, frontFuselage, rearFuselage, tailSpan, tailChord, tailAirfoil })
+    activePanel.value    = newActivePanel
+    showDragCurve.value  = newShowDragCurve
   } catch (err) {
     setError(err instanceof Error ? err : new Error(String(err)))
   }
 })
 
-watch([() => getState(), activePanel], ([s, panel]) => {
+watch([() => getState(), activePanel, showDragCurve], ([s, panel, dragCurve]) => {
   try {
     const params = new URLSearchParams()
 
@@ -108,6 +127,20 @@ watch([() => getState(), activePanel], ([s, panel]) => {
       params.set('sweep', s.sweepAngle.toFixed(2))
     if (panel !== URL_DEFAULTS.activePanel)
       params.set('panel', panel)
+    if (dragCurve !== URL_DEFAULTS.showDragCurve)
+      params.set('view', 'drag')
+    if (s.fuselageWidth !== URL_DEFAULTS.fuselageWidth)
+      params.set('fw',   s.fuselageWidth.toFixed(3))
+    if (s.frontFuselage !== URL_DEFAULTS.frontFuselage)
+      params.set('ff',   s.frontFuselage.toFixed(3))
+    if (s.rearFuselage  !== URL_DEFAULTS.rearFuselage)
+      params.set('rf',   s.rearFuselage.toFixed(3))
+    if (s.tailSpan      !== URL_DEFAULTS.tailSpan)
+      params.set('ts',   s.tailSpan.toFixed(3))
+    if (s.tailChord     !== URL_DEFAULTS.tailChord)
+      params.set('tch',  s.tailChord.toFixed(3))
+    if (s.tailAirfoil   !== URL_DEFAULTS.tailAirfoil)
+      params.set('tfoil', s.tailAirfoil)
 
     const qs = params.toString()
     history.replaceState(null, '', qs ? '?' + qs : window.location.pathname)
@@ -125,7 +158,11 @@ watch([() => getState(), activePanel], ([s, panel]) => {
     <div class="relative flex flex-1 overflow-hidden">
       <ParameterPanel :active-panel="activePanel" @navigate="activePanel = $event" />
       <AirfoilPanel />
-      <SvgPanel :active-panel="activePanel" />
+      <SvgPanel
+        :active-panel="activePanel"
+        :show-drag-curve="showDragCurve"
+        @update:show-drag-curve="showDragCurve = $event"
+      />
       <ActionPanel />
     </div>
   </div>

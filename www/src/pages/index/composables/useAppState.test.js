@@ -8,7 +8,13 @@ function setup(onError = vi.fn()) {
 describe('useAppState', () => {
   it('returns the default state initially', () => {
     const { getState } = setup()
-    expect(getState()).toEqual({ units: 'SI', siteAltitude: 0, wingLoading: 45, cruisingSpeed: 15, planeType: 'Trainer', airfoilProfile: null, wingSpan: 1.5, rootChord: 0.3, tipChord: 0.2, sweepAngle: 0 })
+    expect(getState()).toEqual({
+      units: 'SI', siteAltitude: 0, wingLoading: 45, cruisingSpeed: 15,
+      planeType: 'Trainer', airfoilProfile: null,
+      wingSpan: 1.5, rootChord: 0.3, tipChord: 0.2, sweepAngle: 0,
+      fuselageWidth: 0.12, frontFuselage: 0, rearFuselage: 0,
+      tailSpan: 0, tailChord: 0, tailAirfoil: 'E168  (12.45%)',
+    })
   })
 
   it('defaults airfoilProfile to null', () => {
@@ -208,6 +214,65 @@ describe('useAppState', () => {
     setState({ sweepAngle: 25 })
     setState({ units: 'Imperial' })
     expect(getState().sweepAngle).toBe(25)
+  })
+
+  // ── Fuselage & Tail state fields ─────────────────────────────────────────────
+
+  it('defaults fuselageWidth to 0.12', () => {
+    const { getState } = setup()
+    expect(getState().fuselageWidth).toBe(0.12)
+  })
+
+  it('defaults frontFuselage to 0 (sentinel for computed default)', () => {
+    const { getState } = setup()
+    expect(getState().frontFuselage).toBe(0)
+  })
+
+  it('defaults rearFuselage to 0 (sentinel)', () => {
+    const { getState } = setup()
+    expect(getState().rearFuselage).toBe(0)
+  })
+
+  it('defaults tailSpan to 0 (sentinel)', () => {
+    const { getState } = setup()
+    expect(getState().tailSpan).toBe(0)
+  })
+
+  it('defaults tailChord to 0 (sentinel)', () => {
+    const { getState } = setup()
+    expect(getState().tailChord).toBe(0)
+  })
+
+  it('defaults tailAirfoil to Eppler 168 profile name', () => {
+    const { getState } = setup()
+    expect(getState().tailAirfoil).toBe('E168  (12.45%)')
+  })
+
+  it('fuselageWidth converts from SI to Imperial when units change', () => {
+    const { getState, setState } = setup()
+    setState({ fuselageWidth: 1 })       // 1 m
+    setState({ units: 'Imperial' })
+    expect(getState().fuselageWidth).toBeCloseTo(3.28084, 2)
+  })
+
+  it('frontFuselage sentinel (0) remains 0 after unit conversion', () => {
+    const { getState, setState } = setup()
+    // frontFuselage defaults to 0; convertDistance(0, 'SI', 'Imperial') = 0
+    setState({ units: 'Imperial' })
+    expect(getState().frontFuselage).toBe(0)
+  })
+
+  it('frontFuselage converts non-zero value when units change', () => {
+    const { getState, setState } = setup()
+    setState({ frontFuselage: 0.6 })     // 0.6 m
+    setState({ units: 'Imperial' })
+    expect(getState().frontFuselage).toBeCloseTo(0.6 * 3.28084, 2)
+  })
+
+  it('tailAirfoil is NOT converted when units change', () => {
+    const { getState, setState } = setup()
+    setState({ units: 'Imperial' })
+    expect(getState().tailAirfoil).toBe('E168  (12.45%)')
   })
 
   it('calls onError when setState throws', () => {
